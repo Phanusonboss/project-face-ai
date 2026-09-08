@@ -12,7 +12,8 @@ import Profile from "./components/Student/Profile";
 import Settings from "./components/Student/Settings";
 import Announcements from "./components/Student/Announcements";
 
-import TeacherDashboard from "./components/TeacherDashboard";
+import TeacherDashboard from "./components/Teacher/TeacherDashboard";
+import TeacherCourses from "./components/Teacher/TeacherCourses";
 
 function App() {
   return (
@@ -32,7 +33,8 @@ function App() {
       <Route path="/announcements" element={<Announcements />} />
 
       {/* Teacher */}
-      <Route path="/teacher/dashboard" element={<TeacherDashboard />} />
+      <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
+      <Route path="/teacher-courses" element={<TeacherCourses />} />
     </Routes>
   );
 }

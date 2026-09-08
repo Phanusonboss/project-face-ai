@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
-  ScanFace,
   History,
   ClipboardList,
   Users,
@@ -35,20 +34,15 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import logoImg from "../assets/logo-cs.png";
+import logoImg from "../../assets/logo-cs.png";
 
-const mainNav = [{ icon: LayoutDashboard, label: "แดชบอร์ด", to: "/teacher/dashboard", active: true }];
-
-const menuNav = [
-  { icon: BookOpen, label: "รายวิชาของฉัน", to: "#" },
-  { icon: ScanFace, label: "เช็คชื่อเข้าชั้นเรียน", to: "#" },
+const navItems = [
+  { icon: LayoutDashboard, label: "แดชบอร์ด", to: "/teacher-dashboard", active: true },
+  { icon: BookOpen, label: "รายวิชาของฉัน", to: "/teacher-courses" },
   { icon: History, label: "ประวัติการเช็คชื่อ", to: "#" },
   { icon: ClipboardList, label: "รายงานการเข้าเรียน", to: "#" },
   { icon: Users, label: "นักศึกษา", to: "#" },
   { icon: Download, label: "ส่งออกข้อมูล", to: "#" },
-];
-
-const settingsNav = [
   { icon: User, label: "โปรไฟล์", to: "#" },
   { icon: Settings, label: "การตั้งค่า", to: "#" },
 ];
@@ -164,71 +158,43 @@ export default function TeacherDashboard() {
   const totalToday = todaySummary.reduce((a, b) => a + b.value, 0);
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 font-sans flex">
-      {/* ---------- Sidebar ---------- */}
-      <aside
-        className={`${
-          sidebarOpen ? "w-64" : "w-0 lg:w-64"
-        } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
-      >
-        <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
-          <img src={logoImg} alt="CS FaceAttend" className="h-10 w-auto object-contain" />
-          <div className="leading-tight">
-            <div className="text-base font-bold text-slate-900 whitespace-nowrap">
-              CS FaceAttend
-            </div>
-            <div className="text-[10px] text-slate-400 whitespace-nowrap">
-              Computer Science AI Face Attendance System
+      <div className="min-h-screen w-full bg-slate-50 font-sans flex">
+        {/* ---------- Sidebar ---------- */}
+        <aside
+          className={`${
+            sidebarOpen ? "w-64" : "w-0 lg:w-64"
+          } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
+        >
+          <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
+            <img src={logoImg} alt="CS FaceAttend" className="h-10 w-auto object-contain" />
+            <div className="leading-tight">
+              <div className="text-base font-bold text-slate-900 whitespace-nowrap">
+                CS FaceAttend
+              </div>
+              <div className="text-[10px] text-slate-400 whitespace-nowrap">
+                Computer Science AI Face Attendance System
+              </div>
             </div>
           </div>
-        </div>
-
-        <nav className="flex-1 px-4 py-6 overflow-y-auto">
-          {mainNav.map(({ icon: Icon, label, to, active }) => (
-            <Link
-              key={label}
-              to={to}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-                active
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              }`}
-            >
-              <Icon className="w-5 h-5 shrink-0" />
-              {label}
-            </Link>
-          ))}
-
-          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-4 pt-6 pb-2">
-            เมนูหลัก
-          </div>
-          <div className="space-y-1.5">
-            {menuNav.map(({ icon: Icon, label, to }) => (
+  
+          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+            {navItems.map(({ icon: Icon, label, to, active }) => (
               <Link
                 key={label}
                 to={to}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors whitespace-nowrap"
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
+                  active
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                }`}
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 {label}
               </Link>
             ))}
-          </div>
-
-          <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-4 pt-6 pb-2">
-            การตั้งค่า
-          </div>
-          <div className="space-y-1.5">
-            {settingsNav.map(({ icon: Icon, label, to }) => (
-              <Link
-                key={label}
-                to={to}
-                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors whitespace-nowrap"
-              >
-                <Icon className="w-5 h-5 shrink-0" />
-                {label}
-              </Link>
-            ))}
+          </nav>
+  
+          <div className="px-4 pb-4">
             <Link
               to="/login"
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
@@ -237,7 +203,6 @@ export default function TeacherDashboard() {
               ออกจากระบบ
             </Link>
           </div>
-        </nav>
 
         <div className="p-4">
           <div className="rounded-2xl bg-blue-50 border border-blue-100 p-5 text-center">
