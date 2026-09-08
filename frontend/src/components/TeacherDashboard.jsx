@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   LayoutDashboard,
   BookOpen,
@@ -36,20 +37,20 @@ import {
 } from "recharts";
 import logoImg from "../assets/logo-cs.png";
 
-const mainNav = [{ icon: LayoutDashboard, label: "แดชบอร์ด", active: true }];
+const mainNav = [{ icon: LayoutDashboard, label: "แดชบอร์ด", to: "/teacher/dashboard", active: true }];
 
 const menuNav = [
-  { icon: BookOpen, label: "หลักสูตรรายวิชา" },
-  { icon: ScanFace, label: "เช็คชื่อเข้าชั้นเรียน" },
-  { icon: History, label: "ประวัติการเช็คชื่อ" },
-  { icon: ClipboardList, label: "รายงานการเข้าเรียน" },
-  { icon: Users, label: "นักศึกษา" },
-  { icon: Download, label: "ส่งออกข้อมูล" },
+  { icon: BookOpen, label: "รายวิชาของฉัน", to: "#" },
+  { icon: ScanFace, label: "เช็คชื่อเข้าชั้นเรียน", to: "#" },
+  { icon: History, label: "ประวัติการเช็คชื่อ", to: "#" },
+  { icon: ClipboardList, label: "รายงานการเข้าเรียน", to: "#" },
+  { icon: Users, label: "นักศึกษา", to: "#" },
+  { icon: Download, label: "ส่งออกข้อมูล", to: "#" },
 ];
 
 const settingsNav = [
-  { icon: User, label: "โปรไฟล์" },
-  { icon: Settings, label: "การตั้งค่า" },
+  { icon: User, label: "โปรไฟล์", to: "#" },
+  { icon: Settings, label: "การตั้งค่า", to: "#" },
 ];
 
 const attendanceTrend = [
@@ -177,16 +178,16 @@ export default function TeacherDashboard() {
               CS FaceAttend
             </div>
             <div className="text-[10px] text-slate-400 whitespace-nowrap">
-              AI Face Attendance System
+              Computer Science AI Face Attendance System
             </div>
           </div>
         </div>
 
         <nav className="flex-1 px-4 py-6 overflow-y-auto">
-          {mainNav.map(({ icon: Icon, label, active }) => (
-            <a
+          {mainNav.map(({ icon: Icon, label, to, active }) => (
+            <Link
               key={label}
-              href="#"
+              to={to}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
                 active
                   ? "bg-blue-50 text-blue-600"
@@ -195,22 +196,22 @@ export default function TeacherDashboard() {
             >
               <Icon className="w-5 h-5 shrink-0" />
               {label}
-            </a>
+            </Link>
           ))}
 
           <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide px-4 pt-6 pb-2">
             เมนูหลัก
           </div>
           <div className="space-y-1.5">
-            {menuNav.map(({ icon: Icon, label }) => (
-              <a
+            {menuNav.map(({ icon: Icon, label, to }) => (
+              <Link
                 key={label}
-                href="#"
+                to={to}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors whitespace-nowrap"
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 {label}
-              </a>
+              </Link>
             ))}
           </div>
 
@@ -218,23 +219,23 @@ export default function TeacherDashboard() {
             การตั้งค่า
           </div>
           <div className="space-y-1.5">
-            {settingsNav.map(({ icon: Icon, label }) => (
-              <a
+            {settingsNav.map(({ icon: Icon, label, to }) => (
+              <Link
                 key={label}
-                href="#"
+                to={to}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-colors whitespace-nowrap"
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 {label}
-              </a>
+              </Link>
             ))}
-            <a
-              href="#"
+            <Link
+              to="/login"
               className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
             >
               <LogOut className="w-5 h-5 shrink-0" />
               ออกจากระบบ
-            </a>
+            </Link>
           </div>
         </nav>
 
@@ -554,8 +555,7 @@ export default function TeacherDashboard() {
         </main>
 
         <footer className="text-center text-xs text-slate-400 py-6">
-          © 2024 CS FaceAttend - Computer Science Face Attendance System AI. All rights
-          reserved.
+           © 2026 Computer Science AI Face Attendance System. All rights reserved.
         </footer>
       </div>
     </div>

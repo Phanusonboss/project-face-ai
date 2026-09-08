@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import logoImg from "../assets/logo-cs.png";
 import bgHero from "../assets/bg-hero.jpg";
 import {
@@ -17,11 +18,21 @@ import {
   X,
 } from "lucide-react";
 
-// Demo "correct" credentials — replace with real API call in production
-const DEMO_USER = "student01";
-const DEMO_PASS = "Passw0rd!";
+// Demo accounts — replace with a real API call in production.
+// In a real system the backend authenticates the user and returns their role;
+// the frontend then routes based on that role.
+const DEMO_ACCOUNTS = [
+  { username: "student01", password: "Passw0rd!", role: "student" },
+  { username: "teacher01", password: "Teach123!", role: "teacher" },
+];
+
+const ROLE_HOME = {
+  student: "/dashboard",
+  teacher: "/teacher/dashboard",
+};
 
 export default function LoginPage() {
+  const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -77,9 +88,13 @@ export default function LoginPage() {
     // simulate an auth check
     setTimeout(() => {
       setLoading(false);
-      if (username.trim() === DEMO_USER && password === DEMO_PASS) {
+      const account = DEMO_ACCOUNTS.find(
+        (acc) => acc.username === username.trim() && acc.password === password
+      );
+      if (account) {
         setSuccess(true);
         setSubmitError("");
+        setTimeout(() => navigate(ROLE_HOME[account.role] || "/dashboard"), 900);
       } else {
         setSuccess(false);
         setSubmitError("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง");

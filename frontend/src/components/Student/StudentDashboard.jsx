@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import {
   Home,
   ScanFace,
@@ -36,17 +37,18 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import logoImg from "../assets/logo-cs.png";
+import logoImg from "../../assets/logo-cs.png";
 
 const navItems = [
-  { icon: Home, label: "หน้าหลัก", active: true },
-  { icon: ScanFace, label: "เช็คชื่อ" },
-  { icon: History, label: "ประวัติการเช็คชื่อ" },
-  { icon: UserPlus, label: "ลงทะเบียนใบหน้า" },
-  { icon: BookOpen, label: "วิชาเรียนของฉัน" },
-  { icon: CalendarDays, label: "ปฏิทินการเรียน" },
-  { icon: User, label: "โปรไฟล์" },
-  { icon: Settings, label: "ตั้งค่า" },
+  { icon: Home, label: "หน้าหลัก", to: "/dashboard", active: true },
+  { icon: ScanFace, label: "เช็คชื่อ", to: "/checkin" },
+  { icon: History, label: "ประวัติการเช็คชื่อ", to: "/history" },
+  { icon: UserPlus, label: "ลงทะเบียนใบหน้า", to: "/face-registration" },
+  { icon: BookOpen, label: "วิชาเรียนของฉัน", to: "/courses" },
+  { icon: CalendarDays, label: "ตารางเรียน", to: "/schedule" },
+  { icon: Megaphone, label: "ประกาศ", to: "/announcements" },
+  { icon: User, label: "โปรไฟล์", to: "/profile" },
+  { icon: Settings, label: "ตั้งค่า", to: "/settings" },
 ];
 
 const todayClasses = [
@@ -156,22 +158,22 @@ export default function StudentDashboard() {
         } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
       >
         <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
-          <img src={logoImg} alt="FaceAttend" className="h-10 w-auto object-contain" />
+          <img src={logoImg} alt="CS FaceAttend" className="h-10 w-auto object-contain" />
           <div className="leading-tight">
             <div className="text-base font-bold text-slate-900 whitespace-nowrap">
-              FaceAttend
+              CS FaceAttend
             </div>
             <div className="text-[10px] text-slate-400 whitespace-nowrap">
-              Smart Attendance System
+              Computer Science AI Face Attendance System
             </div>
           </div>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          {navItems.map(({ icon: Icon, label, active }) => (
-            <a
+          {navItems.map(({ icon: Icon, label, to, active }) => (
+            <Link
               key={label}
-              href="#"
+              to={to}
               className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
                 active
                   ? "bg-blue-50 text-blue-600"
@@ -180,18 +182,18 @@ export default function StudentDashboard() {
             >
               <Icon className="w-5 h-5 shrink-0" />
               {label}
-            </a>
+            </Link>
           ))}
         </nav>
 
         <div className="px-4 pb-4">
-          <a
-            href="#"
+          <Link
+            to="/login"
             className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
           >
             <LogOut className="w-5 h-5 shrink-0" />
             ออกจากระบบ
-          </a>
+          </Link>
         </div>
 
         <div className="p-4">
@@ -326,7 +328,7 @@ export default function StudentDashboard() {
             <StatCard
               icon={<Trophy className="w-6 h-6 text-amber-500" />}
               iconBg="bg-amber-100"
-              label="ลำดับในชั้นเรียน"
+              label="อันดับในชั้นเรียน"
               value="5"
               unit="/45"
               sub="จากทั้งหมด"
