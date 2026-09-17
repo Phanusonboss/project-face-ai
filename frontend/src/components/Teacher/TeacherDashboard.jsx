@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ShieldCheck,
   CheckCircle2,
+  Award,
   Loader2,
   Circle,
   UserCheck,
@@ -37,14 +38,20 @@ import {
 import logoImg from "../../assets/logo-cs.png";
 
 const navItems = [
-  { icon: LayoutDashboard, label: "แดชบอร์ด", to: "/teacher-dashboard", active: true },
+  {
+    icon: LayoutDashboard,
+    label: "แดชบอร์ด",
+    to: "/teacher-dashboard",
+    active: true,
+  },
   { icon: BookOpen, label: "รายวิชาของฉัน", to: "/teacher-courses" },
-  { icon: History, label: "ประวัติการเช็คชื่อ", to: "#" },
-  { icon: ClipboardList, label: "รายงานการเข้าเรียน", to: "#" },
-  { icon: Users, label: "นักศึกษา", to: "#" },
-  { icon: Download, label: "ส่งออกข้อมูล", to: "#" },
-  { icon: User, label: "โปรไฟล์", to: "#" },
-  { icon: Settings, label: "การตั้งค่า", to: "#" },
+  { icon: History, label: "ประวัติการเช็คชื่อ", to: "/teacher-history" },
+  { icon: ClipboardList, label: "รายงานการเข้าเรียน", to: "/teacher-report" },
+  { icon: Award, label: "คะแนนเข้าเรียน", to: "/teacher-scores" },
+  { icon: Users, label: "นักศึกษา", to: "/teacher-students" },
+  { icon: Download, label: "ส่งออกข้อมูล", to: "/teacher-export" },
+  { icon: User, label: "โปรไฟล์", to: "/teacher-profile" },
+  { icon: Settings, label: "การตั้งค่า", to: "/teacher-settings" },
 ];
 
 const attendanceTrend = [
@@ -158,51 +165,55 @@ export default function TeacherDashboard() {
   const totalToday = todaySummary.reduce((a, b) => a + b.value, 0);
 
   return (
-      <div className="min-h-screen w-full bg-slate-50 font-sans flex">
-        {/* ---------- Sidebar ---------- */}
-        <aside
-          className={`${
-            sidebarOpen ? "w-64" : "w-0 lg:w-64"
-          } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
-        >
-          <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
-            <img src={logoImg} alt="CS FaceAttend" className="h-10 w-auto object-contain" />
-            <div className="leading-tight">
-              <div className="text-base font-bold text-slate-900 whitespace-nowrap">
-                CS FaceAttend
-              </div>
-              <div className="text-[10px] text-slate-400 whitespace-nowrap">
-                Computer Science AI Face Attendance System
-              </div>
+    <div className="min-h-screen w-full bg-slate-50 font-sans flex">
+      {/* ---------- Sidebar ---------- */}
+      <aside
+        className={`${
+          sidebarOpen ? "w-64" : "w-0 lg:w-64"
+        } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
+      >
+        <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
+          <img
+            src={logoImg}
+            alt="CS FaceAttend"
+            className="h-10 w-auto object-contain"
+          />
+          <div className="leading-tight">
+            <div className="text-base font-bold text-slate-900 whitespace-nowrap">
+              CS FaceAttend
+            </div>
+            <div className="text-[10px] text-slate-400 whitespace-nowrap">
+              Computer Science AI Face Attendance System
             </div>
           </div>
-  
-          <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-            {navItems.map(({ icon: Icon, label, to, active }) => (
-              <Link
-                key={label}
-                to={to}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-                  active
-                    ? "bg-blue-50 text-blue-600"
-                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-                }`}
-              >
-                <Icon className="w-5 h-5 shrink-0" />
-                {label}
-              </Link>
-            ))}
-          </nav>
-  
-          <div className="px-4 pb-4">
+        </div>
+
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+          {navItems.map(({ icon: Icon, label, to, active }) => (
             <Link
-              to="/login"
-              className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
+              key={label}
+              to={to}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
+                active
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              }`}
             >
-              <LogOut className="w-5 h-5 shrink-0" />
-              ออกจากระบบ
+              <Icon className="w-5 h-5 shrink-0" />
+              {label}
             </Link>
-          </div>
+          ))}
+        </nav>
+
+        <div className="px-4 pb-4">
+          <Link
+            to="/login"
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
+          >
+            <LogOut className="w-5 h-5 shrink-0" />
+            ออกจากระบบ
+          </Link>
+        </div>
 
         <div className="p-4">
           <div className="rounded-2xl bg-blue-50 border border-blue-100 p-5 text-center">
@@ -213,8 +224,7 @@ export default function TeacherDashboard() {
               ความปลอดภัยของข้อมูล
             </div>
             <div className="text-xs text-slate-500 leading-relaxed mt-1.5">
-              ระบบใช้เทคโนโลยี AI ในการจดจำใบหน้า
-              ข้อมูลถูกเข้ารหัสและปลอดภัย
+              ระบบใช้เทคโนโลยี AI ในการจดจำใบหน้า ข้อมูลถูกเข้ารหัสและปลอดภัย
             </div>
             <div className="inline-flex items-center gap-1.5 mt-4 bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
               <CheckCircle2 className="w-3.5 h-3.5" />
@@ -238,7 +248,8 @@ export default function TeacherDashboard() {
 
           <div>
             <h1 className="text-lg font-bold text-slate-900">
-              สวัสดีครับ, อาจารย์ณัฐวุฒิ <span className="inline-block">👋</span>
+              สวัสดีครับ, อาจารย์ณัฐวุฒิ{" "}
+              <span className="inline-block">👋</span>
             </h1>
             <p className="text-xs text-slate-400">
               ยินดีต้อนรับเข้าสู่ระบบ CS FaceAttend
@@ -270,7 +281,9 @@ export default function TeacherDashboard() {
               <div className="text-sm font-semibold text-slate-800 whitespace-nowrap">
                 อาจารย์ณัฐวุฒิ
               </div>
-              <div className="text-xs text-slate-400 whitespace-nowrap">อาจารย์</div>
+              <div className="text-xs text-slate-400 whitespace-nowrap">
+                อาจารย์
+              </div>
             </div>
             <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
           </button>
@@ -323,22 +336,55 @@ export default function TeacherDashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5">
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-slate-900">สถิติการเข้าเรียนภาพรวม</h3>
+                <h3 className="font-bold text-slate-900">
+                  สถิติการเข้าเรียนภาพรวม
+                </h3>
                 <button className="flex items-center gap-1 text-xs font-medium text-slate-500 border border-slate-200 rounded-lg px-3 py-1.5">
                   7 วันที่ผ่านมา <ChevronDown className="w-3.5 h-3.5" />
                 </button>
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={attendanceTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <LineChart
+                    data={attendanceTrend}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
                     <defs>
-                      <linearGradient id="presentFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.18} />
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={0} />
+                      <linearGradient
+                        id="presentFill"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0.18}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#3b82f6"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
-                      <linearGradient id="absentFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#ef4444" stopOpacity={0.15} />
-                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+                      <linearGradient
+                        id="absentFill"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor="#ef4444"
+                          stopOpacity={0.15}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor="#ef4444"
+                          stopOpacity={0}
+                        />
                       </linearGradient>
                     </defs>
                     <CartesianGrid vertical={false} stroke="#f1f5f9" />
@@ -353,7 +399,12 @@ export default function TeacherDashboard() {
                       axisLine={false}
                       tickLine={false}
                     />
-                    <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0" }} />
+                    <Tooltip
+                      contentStyle={{
+                        borderRadius: 12,
+                        border: "1px solid #e2e8f0",
+                      }}
+                    />
                     <Legend
                       verticalAlign="bottom"
                       iconType="circle"
@@ -383,7 +434,9 @@ export default function TeacherDashboard() {
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <h3 className="font-bold text-slate-900 mb-4">สรุปการเข้าเรียนวันนี้</h3>
+              <h3 className="font-bold text-slate-900 mb-4">
+                สรุปการเข้าเรียนวันนี้
+              </h3>
               <div className="relative h-40">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -402,13 +455,18 @@ export default function TeacherDashboard() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
-                  <div className="text-2xl font-bold text-slate-900">{totalToday}</div>
+                  <div className="text-2xl font-bold text-slate-900">
+                    {totalToday}
+                  </div>
                   <div className="text-xs text-slate-400">นักศึกษาทั้งหมด</div>
                 </div>
               </div>
               <div className="space-y-2.5 mt-4">
                 {todaySummary.map((s) => (
-                  <div key={s.name} className="flex items-center justify-between text-sm">
+                  <div
+                    key={s.name}
+                    className="flex items-center justify-between text-sm"
+                  >
                     <div className="flex items-center gap-2">
                       <span
                         className="w-2.5 h-2.5 rounded-full"
@@ -417,8 +475,12 @@ export default function TeacherDashboard() {
                       <span className="text-slate-600">{s.name}</span>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-slate-800 font-medium">{s.value} คน</span>
-                      <span className="text-slate-400 w-14 text-right">{s.pct}</span>
+                      <span className="text-slate-800 font-medium">
+                        {s.value} คน
+                      </span>
+                      <span className="text-slate-400 w-14 text-right">
+                        {s.pct}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -438,7 +500,10 @@ export default function TeacherDashboard() {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 overflow-x-auto">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-slate-900">การเช็คชื่อล่าสุด</h3>
-                <a href="#" className="text-sm text-blue-600 font-medium hover:underline">
+                <a
+                  href="#"
+                  className="text-sm text-blue-600 font-medium hover:underline"
+                >
                   ดูทั้งหมด
                 </a>
               </div>
@@ -454,13 +519,22 @@ export default function TeacherDashboard() {
                 </thead>
                 <tbody>
                   {recentCheckins.map((r, i) => (
-                    <tr key={i} className="border-b border-slate-50 last:border-0">
-                      <td className="py-3 pr-3 text-slate-500 whitespace-nowrap">{r.time}</td>
+                    <tr
+                      key={i}
+                      className="border-b border-slate-50 last:border-0"
+                    >
+                      <td className="py-3 pr-3 text-slate-500 whitespace-nowrap">
+                        {r.time}
+                      </td>
                       <td className="py-3 pr-3 text-slate-800 font-medium whitespace-nowrap">
                         {r.subject}
                       </td>
-                      <td className="py-3 pr-3 text-slate-500 whitespace-nowrap">{r.room}</td>
-                      <td className="py-3 pr-3 text-slate-500 whitespace-nowrap">{r.attend}</td>
+                      <td className="py-3 pr-3 text-slate-500 whitespace-nowrap">
+                        {r.room}
+                      </td>
+                      <td className="py-3 pr-3 text-slate-500 whitespace-nowrap">
+                        {r.attend}
+                      </td>
                       <td className="py-3 pr-3 whitespace-nowrap">
                         {r.status === "done" && (
                           <span className="inline-flex items-center gap-1.5 text-emerald-600 text-xs font-semibold">
@@ -490,7 +564,10 @@ export default function TeacherDashboard() {
             <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-slate-900">รายวิชาของฉัน</h3>
-                <a href="#" className="text-sm text-blue-600 font-medium hover:underline">
+                <a
+                  href="#"
+                  className="text-sm text-blue-600 font-medium hover:underline"
+                >
                   ดูทั้งหมด
                 </a>
               </div>
@@ -506,10 +583,14 @@ export default function TeacherDashboard() {
                       <div className="text-sm font-semibold text-slate-800 truncate">
                         {c.name}
                       </div>
-                      <div className="text-xs text-slate-400 truncate">{c.students}</div>
+                      <div className="text-xs text-slate-400 truncate">
+                        {c.students}
+                      </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className={`text-xs font-medium ${c.statusColor}`}>{c.status}</div>
+                      <div className={`text-xs font-medium ${c.statusColor}`}>
+                        {c.status}
+                      </div>
                     </div>
                     <RingBadge percent={c.pct} />
                   </div>
@@ -520,7 +601,8 @@ export default function TeacherDashboard() {
         </main>
 
         <footer className="text-center text-xs text-slate-400 py-6">
-           © 2026 Computer Science AI Face Attendance System. All rights reserved.
+          © 2026 Computer Science AI Face Attendance System. All rights
+          reserved.
         </footer>
       </div>
     </div>
@@ -530,13 +612,23 @@ export default function TeacherDashboard() {
 function StatCard({ icon, iconBg, label, value, sub, subColor }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+      <div
+        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}
+      >
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-xs text-slate-500 font-medium truncate">{label}</div>
-        <div className="text-2xl font-bold text-slate-900 leading-tight mt-0.5">{value}</div>
-        <div className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400"}`}>{sub}</div>
+        <div className="text-xs text-slate-500 font-medium truncate">
+          {label}
+        </div>
+        <div className="text-2xl font-bold text-slate-900 leading-tight mt-0.5">
+          {value}
+        </div>
+        <div
+          className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400"}`}
+        >
+          {sub}
+        </div>
       </div>
     </div>
   );
@@ -549,7 +641,13 @@ function RingBadge({ percent }) {
   const circumference = normalizedRadius * 2 * Math.PI;
   const offset = circumference - (percent / 100) * circumference;
   const color =
-    percent === 0 ? "#cbd5e1" : percent >= 85 ? "#22c55e" : percent >= 70 ? "#3b82f6" : "#f59e0b";
+    percent === 0
+      ? "#cbd5e1"
+      : percent >= 85
+        ? "#22c55e"
+        : percent >= 70
+          ? "#3b82f6"
+          : "#f59e0b";
 
   return (
     <div className="relative w-9 h-9 shrink-0">

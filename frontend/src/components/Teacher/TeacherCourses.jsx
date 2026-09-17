@@ -16,6 +16,7 @@ import {
   ChevronRight,
   ShieldCheck,
   CheckCircle2,
+  Award,
   CalendarDays,
   UsersRound,
   CalendarCheck,
@@ -35,16 +36,26 @@ import {
   Wrench,
   ScanFace,
   Clock,
+  X,
+  Gauge,
+  Save,
+  CheckCircle,
 } from "lucide-react";
 import logoImg from "../../assets/logo-cs.png";
 
 const navItems = [
   { icon: LayoutDashboard, label: "แดชบอร์ด", to: "/teacher-dashboard" },
-  { icon: BookOpen, label: "รายวิชาของฉัน", to: "/teacher-courses", active: true },
-  { icon: History, label: "ประวัติการเช็คชื่อ", to: "#" },
-  { icon: ClipboardList, label: "รายงานการเข้าเรียน", to: "#" },
-  { icon: Users, label: "นักศึกษา", to: "#" },
-  { icon: Download, label: "ส่งออกข้อมูล", to: "#" },
+  {
+    icon: BookOpen,
+    label: "รายวิชาของฉัน",
+    to: "/teacher-courses",
+    active: true,
+  },
+  { icon: History, label: "ประวัติการเช็คชื่อ", to: "/teacher-history" },
+  { icon: ClipboardList, label: "รายงานการเข้าเรียน", to: "/teacher-report" },
+  { icon: Award, label: "คะแนนเข้าเรียน", to: "/teacher-scores" },
+  { icon: Users, label: "นักศึกษา", to: "/teacher-students" },
+  { icon: Download, label: "ส่งออกข้อมูล", to: "/teacher-export" },
   { icon: User, label: "โปรไฟล์", to: "#" },
   { icon: Settings, label: "การตั้งค่า", to: "#" },
 ];
@@ -125,11 +136,58 @@ const statusMeta = {
   ended: { label: "สิ้นสุดแล้ว", cls: "bg-slate-100 text-slate-400" },
 };
 
+function parseStartTime(timeRange) {
+  const start = (timeRange || "").split("-")[0]?.trim();
+  return start && /^\d{1,2}:\d{2}$/.test(start)
+    ? start.padStart(5, "0")
+    : "08:00";
+}
+
+function parseEndTime(timeRange) {
+  const end = (timeRange || "").split("-")[1]?.trim();
+  return end && /^\d{1,2}:\d{2}$/.test(end) ? end.padStart(5, "0") : "09:00";
+}
+
+function defaultCheckinRule(course) {
+  return {
+    start: parseStartTime(course.time),
+    end: parseEndTime(course.time),
+    lateThreshold: 5,
+    confidence: 85,
+    allowManualFallback: true,
+  };
+}
+
 export default function TeacherCourses() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeFilter, setActiveFilter] = useState("ทั้งหมด");
   const [view, setView] = useState("grid");
   const [page, setPage] = useState(1);
+  const [manageCourse, setManageCourse] = useState(null);
+  const [checkinByCourse, setCheckinByCourse] = useState({});
+  const [savedCode, setSavedCode] = useState(null);
+
+  function openManage(course) {
+    setCheckinByCourse((prev) =>
+      prev[course.code]
+        ? prev
+        : { ...prev, [course.code]: defaultCheckinRule(course) },
+    );
+    setManageCourse(course);
+  }
+
+  function updateRule(code, patch) {
+    setCheckinByCourse((prev) => ({
+      ...prev,
+      [code]: { ...prev[code], ...patch },
+    }));
+  }
+
+  function handleSaveRule(code) {
+    setSavedCode(code);
+    setManageCourse(null);
+    setTimeout(() => setSavedCode(null), 2500);
+  }
 
   return (
     <div className="min-h-screen w-full bg-slate-50 font-sans flex">
@@ -140,7 +198,11 @@ export default function TeacherCourses() {
         } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
       >
         <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
-          <img src={logoImg} alt="CS FaceAttend" className="h-10 w-auto object-contain" />
+          <img
+            src={logoImg}
+            alt="CS FaceAttend"
+            className="h-10 w-auto object-contain"
+          />
           <div className="leading-tight">
             <div className="text-base font-bold text-slate-900 whitespace-nowrap">
               CS FaceAttend
@@ -183,7 +245,9 @@ export default function TeacherCourses() {
             <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-3">
               <ShieldCheck className="w-7 h-7 text-white" />
             </div>
-            <div className="text-sm font-semibold text-slate-800">ความปลอดภัยของข้อมูล</div>
+            <div className="text-sm font-semibold text-slate-800">
+              ความปลอดภัยของข้อมูล
+            </div>
             <div className="text-xs text-slate-500 leading-relaxed mt-1.5">
               ระบบรักษาข้อมูล ด้วย AI และการเข้ารหัส
             </div>
@@ -210,7 +274,9 @@ export default function TeacherCourses() {
           <div>
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-slate-700" />
-              <h1 className="text-lg font-bold text-slate-900">รายวิชาของฉัน</h1>
+              <h1 className="text-lg font-bold text-slate-900">
+                รายวิชาของฉัน
+              </h1>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
               จัดการรายวิชาและข้อมูลการเข้าเรียนของคุณ
@@ -242,7 +308,9 @@ export default function TeacherCourses() {
               <div className="text-sm font-semibold text-slate-800 whitespace-nowrap">
                 อาจารย์ณัฐวุฒิ
               </div>
-              <div className="text-xs text-slate-400 whitespace-nowrap">อาจารย์</div>
+              <div className="text-xs text-slate-400 whitespace-nowrap">
+                อาจารย์
+              </div>
             </div>
             <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
           </button>
@@ -250,6 +318,13 @@ export default function TeacherCourses() {
 
         {/* Body */}
         <main className="flex-1 overflow-y-auto p-6 space-y-5">
+          {savedCode && (
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-medium rounded-xl px-4 py-3">
+              <CheckCircle className="w-4 h-4" />
+              บันทึกการตั้งค่าการเช็คชื่อของวิชา {savedCode} เรียบร้อยแล้ว
+            </div>
+          )}
+
           {/* Toolbar */}
           <div className="flex flex-wrap items-center justify-end gap-3">
             <div className="relative">
@@ -337,7 +412,9 @@ export default function TeacherCourses() {
               <button
                 onClick={() => setView("grid")}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
-                  view === "grid" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-600"
+                  view === "grid"
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-400 hover:text-slate-600"
                 }`}
               >
                 <LayoutGrid className="w-4 h-4" />
@@ -345,7 +422,9 @@ export default function TeacherCourses() {
               <button
                 onClick={() => setView("list")}
                 className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
-                  view === "list" ? "bg-blue-600 text-white" : "text-slate-400 hover:text-slate-600"
+                  view === "list"
+                    ? "bg-blue-600 text-white"
+                    : "text-slate-400 hover:text-slate-600"
                 }`}
               >
                 <List className="w-4 h-4" />
@@ -378,7 +457,9 @@ export default function TeacherCourses() {
                         <Icon className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="font-bold text-blue-600 text-sm">{c.code}</div>
+                        <div className="font-bold text-blue-600 text-sm">
+                          {c.code}
+                        </div>
                         <div className="text-sm font-semibold text-slate-800 leading-snug">
                           {c.name}
                         </div>
@@ -404,21 +485,27 @@ export default function TeacherCourses() {
                         <UsersRound className="w-3.5 h-3.5" />
                         นักศึกษา
                       </div>
-                      <div className="font-bold text-slate-800 mt-0.5">{c.students} คน</div>
+                      <div className="font-bold text-slate-800 mt-0.5">
+                        {c.students} คน
+                      </div>
                     </div>
                     <div>
                       <div className="flex items-center gap-1 text-slate-400">
                         <ScanFace className="w-3.5 h-3.5" />
                         เช็คชื่อวันนี้
                       </div>
-                      <div className="font-bold text-slate-800 mt-0.5">{c.pct}%</div>
+                      <div className="font-bold text-slate-800 mt-0.5">
+                        {c.pct}%
+                      </div>
                     </div>
                     <div>
                       <div className="flex items-center gap-1 text-slate-400">
                         <Clock className="w-3.5 h-3.5" />
                         เวลาเรียน
                       </div>
-                      <div className="font-bold text-slate-800 mt-0.5">{c.time}</div>
+                      <div className="font-bold text-slate-800 mt-0.5">
+                        {c.time}
+                      </div>
                     </div>
                   </div>
 
@@ -430,7 +517,10 @@ export default function TeacherCourses() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2">
-                    <button className="flex items-center justify-center gap-1 text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg py-2 hover:bg-blue-50 transition-colors">
+                    <button
+                      onClick={() => openManage(c)}
+                      className="flex items-center justify-center gap-1 text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg py-2 hover:bg-blue-50 transition-colors"
+                    >
                       <Wrench className="w-3.5 h-3.5" />
                       จัดการรายวิชา
                     </button>
@@ -461,7 +551,9 @@ export default function TeacherCourses() {
               </div>
               <div>
                 <div className="font-bold text-slate-800">สร้างรายวิชาใหม่</div>
-                <div className="text-xs text-slate-400 mt-1">เพิ่มรายวิชาที่คุณต้องการสอน</div>
+                <div className="text-xs text-slate-400 mt-1">
+                  เพิ่มรายวิชาที่คุณต้องการสอน
+                </div>
               </div>
               <span className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm shadow-blue-200">
                 <Plus className="w-4 h-4" />
@@ -510,9 +602,24 @@ export default function TeacherCourses() {
         </main>
 
         <footer className="text-center text-xs text-slate-400 py-6">
-          © 2026 Computer Science AI Face Attendance System. All rights reserved.
+          © 2026 Computer Science AI Face Attendance System. All rights
+          reserved.
         </footer>
       </div>
+
+      {/* ---------- Manage course modal ---------- */}
+      {manageCourse && (
+        <ManageCourseModal
+          course={manageCourse}
+          rule={
+            checkinByCourse[manageCourse.code] ||
+            defaultCheckinRule(manageCourse)
+          }
+          onChange={(patch) => updateRule(manageCourse.code, patch)}
+          onClose={() => setManageCourse(null)}
+          onSave={() => handleSaveRule(manageCourse.code)}
+        />
+      )}
     </div>
   );
 }
@@ -520,13 +627,184 @@ export default function TeacherCourses() {
 function StatCard({ icon, iconBg, label, value, sub, subColor }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
+      <div
+        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}
+      >
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-xs text-slate-500 font-medium truncate">{label}</div>
-        <div className="text-xl font-bold text-slate-900 leading-tight mt-0.5">{value}</div>
-        <div className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400"}`}>{sub}</div>
+        <div className="text-xs text-slate-500 font-medium truncate">
+          {label}
+        </div>
+        <div className="text-xl font-bold text-slate-900 leading-tight mt-0.5">
+          {value}
+        </div>
+        <div
+          className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400"}`}
+        >
+          {sub}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ManageCourseModal({ course, rule, onChange, onClose, onSave }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
+
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+          <div>
+            <div className="text-xs font-semibold text-blue-600">
+              {course.code}
+            </div>
+            <h3 className="font-bold text-slate-900">
+              จัดการรายวิชา — {course.name}
+            </h3>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 transition-colors shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5">
+          <div className="flex items-center gap-2.5 mb-1">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+              <ScanFace className="w-4 h-4" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm">
+                การเช็คชื่อด้วยใบหน้า
+              </h4>
+              <p className="text-[11px] text-slate-400">
+                ตั้งค่าเฉพาะวิชานี้ เนื่องจากแต่ละวิชาเรียนเวลาไม่เหมือนกัน
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                เปิดให้เช็คชื่อเวลา
+              </label>
+              <input
+                type="time"
+                value={rule.start}
+                onChange={(e) => onChange({ start: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                ปิดรับเช็คชื่อเวลา
+              </label>
+              <input
+                type="time"
+                value={rule.end}
+                onChange={(e) => onChange({ end: e.target.value })}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-400 -mt-3">
+            ค่าเริ่มต้นตั้งตามเวลาเรียนของวิชานี้ ({course.time})
+          </p>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-500">
+                เกณฑ์นับว่ามาสาย (นาทีหลังเริ่มเรียน)
+              </label>
+              <span className="text-sm font-bold text-slate-800">
+                {rule.lateThreshold} นาที
+              </span>
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={30}
+              value={rule.lateThreshold}
+              onChange={(e) =>
+                onChange({ lateThreshold: Number(e.target.value) })
+              }
+              className="w-full accent-blue-600"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
+                <Gauge className="w-3.5 h-3.5 text-slate-400" />
+                ความแม่นยำขั้นต่ำของ AI ในการจดจำใบหน้า
+              </label>
+              <span className="text-sm font-bold text-slate-800">
+                {rule.confidence}%
+              </span>
+            </div>
+            <input
+              type="range"
+              min={50}
+              max={99}
+              value={rule.confidence}
+              onChange={(e) => onChange({ confidence: Number(e.target.value) })}
+              className="w-full accent-blue-600"
+            />
+            <p className="text-[11px] text-slate-400 mt-1">
+              ค่าที่สูงขึ้นช่วยลดการเช็คชื่อผิดคน
+              แต่อาจปฏิเสธใบหน้าที่ถูกต้องบ่อยขึ้น
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-800">
+                อนุญาตเช็คชื่อด้วยตนเองสำรอง
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                ให้นักศึกษากดเช็คชื่อเองได้เมื่อระบบจดจำใบหน้าไม่สำเร็จ
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                onChange({ allowManualFallback: !rule.allowManualFallback })
+              }
+              className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${
+                rule.allowManualFallback ? "bg-blue-600" : "bg-slate-200"
+              }`}
+              aria-pressed={rule.allowManualFallback}
+            >
+              <span
+                className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${
+                  rule.allowManualFallback ? "left-6" : "left-1"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+          <button
+            onClick={onClose}
+            className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+          >
+            ยกเลิก
+          </button>
+          <button
+            onClick={onSave}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm shadow-blue-100"
+          >
+            <Save className="w-4 h-4" />
+            บันทึกการตั้งค่า
+          </button>
+        </div>
       </div>
     </div>
   );
