@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 import { translate } from "./translations";
 
 const STORAGE_KEY = "cs-faceattend-appearance";
@@ -23,48 +23,78 @@ function resolveIsDark(theme) {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
 }
 
+function applyToDocument(s) {
+  const root = document.documentElement;
+  root.classList.toggle("dark", resolveIsDark(s.theme));
+  root.style.fontSize = FONT_SIZE_PX[s.fontSize] ?? FONT_SIZE_PX.normal;
+  root.lang = s.language;
+}
+
+/* ------------------------------------------------------------------
+ * Store กลาง (ก้อนเดียวทั้งแอป)
+ * เดิมแต่ละ component ที่เรียก hook มี useState ของตัวเอง ทำให้
+ * TeacherLayout (แถบซ้าย/หัวหน้า) ไม่รู้ว่าหน้า Settings เปลี่ยนภาษาแล้ว
+ * ตอนนี้ทุก component อ่าน/เขียน store เดียวกัน จึงอัปเดตพร้อมกันทันที
+ * ------------------------------------------------------------------ */
+let state = loadStored();
+const listeners = new Set();
+
+function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function getSnapshot() {
+  return state;
+}
+
+function setState(patch) {
+  state = { ...state, ...patch };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // localStorage ใช้ไม่ได้ (เช่นโหมดส่วนตัว) — ยังทำงานต่อได้ในหน่วยความจำ
+  }
+  applyToDocument(state);
+  listeners.forEach((l) => l());
+}
+
+// ติดตั้ง listener ระดับแอปครั้งเดียว
+if (typeof window !== "undefined") {
+  applyToDocument(state);
+
+  // โหมด "ตามระบบ": เปลี่ยนตาม OS แบบสด ๆ
+  window
+    .matchMedia?.("(prefers-color-scheme: dark)")
+    .addEventListener?.("change", () => {
+      if (state.theme === "system") applyToDocument(state);
+    });
+
+  // ซิงก์ข้ามแท็บ: เปลี่ยนในแท็บหนึ่ง แท็บอื่นเปลี่ยนตาม
+  window.addEventListener("storage", (e) => {
+    if (e.key !== STORAGE_KEY) return;
+    state = loadStored();
+    applyToDocument(state);
+    listeners.forEach((l) => l());
+  });
+}
+
+const setTheme = (theme) => setState({ theme });
+const setLanguage = (language) => setState({ language });
+const setFontSize = (fontSize) => setState({ fontSize });
+
 /**
- * เรียกครั้งเดียวตอนแอปเริ่มทำงาน (เช่นบรรทัดแรก ๆ ของ main.jsx ก่อน ReactDOM.render)
- * เพื่อกันหน้าจอ "กะพริบ" กลับไปโหมดสว่างแวบหนึ่งก่อนที่ React จะ mount เสร็จ
- * ไม่บังคับต้องเรียก แต่แนะนำให้เพิ่มถ้าอยากได้ประสบการณ์ที่ลื่นกว่า
+ * เรียกครั้งเดียวตอนแอปเริ่มทำงาน (เช่นบรรทัดแรก ๆ ของ main.jsx)
+ * ตอนนี้ import ไฟล์นี้ก็ apply ให้อัตโนมัติแล้ว แต่เก็บฟังก์ชันไว้เพื่อให้โค้ดเดิมไม่พัง
  */
 export function applyStoredAppearance() {
-  const { theme, fontSize } = loadStored();
-  document.documentElement.classList.toggle("dark", resolveIsDark(theme));
-  document.documentElement.style.fontSize = FONT_SIZE_PX[fontSize] ?? FONT_SIZE_PX.normal;
+  applyToDocument(state);
 }
 
 export function useAppearanceSettings() {
-  const [settings, setSettings] = useState(loadStored);
+  const settings = useSyncExternalStore(subscribe, getSnapshot);
 
-  // ใส่/ถอด class "dark" บน <html> จริง ๆ ให้ Tailwind's dark: variant ทำงาน
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.toggle("dark", resolveIsDark(settings.theme));
-
-    if (settings.theme !== "system") return undefined;
-
-    const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e) => root.classList.toggle("dark", e.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, [settings.theme]);
-
-  // ขนาดตัวอักษร: ปรับที่ root แล้วปล่อยให้หน่วย rem ทั้งแอป scale ตาม
-  useEffect(() => {
-    document.documentElement.style.fontSize = FONT_SIZE_PX[settings.fontSize] ?? FONT_SIZE_PX.normal;
-  }, [settings.fontSize]);
-
-  // จำค่าไว้ ไม่หายตอนรีเฟรช/สลับหน้า
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-  }, [settings]);
-
-  const setTheme = useCallback((theme) => setSettings((s) => ({ ...s, theme })), []);
-  const setLanguage = useCallback((language) => setSettings((s) => ({ ...s, language })), []);
-  const setFontSize = useCallback((fontSize) => setSettings((s) => ({ ...s, fontSize })), []);
-
-  // t("notifications.email.title") -> ข้อความในภาษาที่เลือกอยู่ตอนนี้ อัปเดตอัตโนมัติเมื่อเปลี่ยนภาษา
+  // t("notifications.email.title") -> ข้อความในภาษาที่เลือกอยู่ อัปเดตทุก component พร้อมกัน
   const t = useCallback((key) => translate(settings.language, key), [settings.language]);
 
   return { ...settings, setTheme, setLanguage, setFontSize, t };
@@ -76,7 +106,6 @@ export function useAppearanceSettings() {
 
   @custom-variant dark (&:where(.dark, .dark *));
 
-เหตุผล: Tailwind v4 (ที่โปรเจกต์นี้ใช้อยู่ตาม package.json) ผูก dark: เข้ากับการตั้งค่า
-ระบบปฏิบัติการ (prefers-color-scheme) โดยอัตโนมัติเท่านั้น ถ้าไม่เพิ่มบรรทัดนี้ ปุ่ม
-"โหมดมืด" / "โหมดสว่าง" ที่กดเลือกเองจะไม่มีผลอะไรเลย มีแต่ "ตามระบบ" เท่านั้นที่จะทำงาน
+เหตุผล: Tailwind v4 ผูก dark: เข้ากับ prefers-color-scheme ของระบบโดยอัตโนมัติเท่านั้น
+ถ้าไม่เพิ่มบรรทัดนี้ ปุ่ม "โหมดมืด" / "โหมดสว่าง" ที่กดเลือกเองจะไม่มีผล
 */
