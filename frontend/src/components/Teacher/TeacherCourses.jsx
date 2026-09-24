@@ -1,22 +1,9 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
 import {
-  LayoutDashboard,
-  BookOpen,
-  History,
-  ClipboardList,
-  Users,
-  Download,
-  User,
-  Settings,
-  LogOut,
-  Bell,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
-  CheckCircle2,
-  Award,
+  CheckCircle,
   CalendarDays,
   UsersRound,
   CalendarCheck,
@@ -39,28 +26,17 @@ import {
   X,
   Gauge,
   Save,
-  CheckCircle,
+  BookOpen,
 } from "lucide-react";
-import logoImg from "../../assets/logo-cs.png";
+import TeacherLayout from "./TeacherLayout";
+import { useAppearanceSettings } from "./useAppearanceSettings";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "แดชบอร์ด", to: "/teacher-dashboard" },
-  {
-    icon: BookOpen,
-    label: "รายวิชาของฉัน",
-    to: "/teacher-courses",
-    active: true,
-  },
-  { icon: History, label: "ประวัติการเช็คชื่อ", to: "/teacher-history" },
-  { icon: ClipboardList, label: "รายงานการเข้าเรียน", to: "/teacher-report" },
-  { icon: Award, label: "คะแนนเข้าเรียน", to: "/teacher-scores" },
-  { icon: Users, label: "นักศึกษา", to: "/teacher-students" },
-  { icon: Download, label: "ส่งออกข้อมูล", to: "/teacher-export" },
-  { icon: User, label: "โปรไฟล์", to: "#" },
-  { icon: Settings, label: "การตั้งค่า", to: "#" },
+const filterTabs = [
+  { key: "all", labelKey: "courses.filters.all" },
+  { key: "teaching", labelKey: "courses.filters.teaching" },
+  { key: "ended", labelKey: "courses.filters.ended" },
+  { key: "notstarted", labelKey: "courses.filters.notStarted" },
 ];
-
-const filterTabs = ["ทั้งหมด", "กำลังสอน", "สิ้นสุดแล้ว", "รอเริ่มสอน"];
 
 const courses = [
   {
@@ -126,21 +102,25 @@ const courses = [
     status: "notstarted",
     icon: Cpu,
     iconBg: "bg-rose-400",
-    barColor: "bg-slate-200",
+    barColor: "bg-slate-200 dark:bg-slate-700",
   },
 ];
 
-const statusMeta = {
-  teaching: { label: "กำลังสอน", cls: "bg-emerald-50 text-emerald-600" },
-  notstarted: { label: "รอเริ่มสอน", cls: "bg-slate-100 text-slate-500" },
-  ended: { label: "สิ้นสุดแล้ว", cls: "bg-slate-100 text-slate-400" },
+const statusCls = {
+  teaching: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400",
+  notstarted: "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400",
+  ended: "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500",
+};
+
+const statusLabelKey = {
+  teaching: "common.status.teaching",
+  notstarted: "common.status.notStarted",
+  ended: "common.status.ended",
 };
 
 function parseStartTime(timeRange) {
   const start = (timeRange || "").split("-")[0]?.trim();
-  return start && /^\d{1,2}:\d{2}$/.test(start)
-    ? start.padStart(5, "0")
-    : "08:00";
+  return start && /^\d{1,2}:\d{2}$/.test(start) ? start.padStart(5, "0") : "08:00";
 }
 
 function parseEndTime(timeRange) {
@@ -159,8 +139,8 @@ function defaultCheckinRule(course) {
 }
 
 export default function TeacherCourses() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeFilter, setActiveFilter] = useState("ทั้งหมด");
+  const { t } = useAppearanceSettings();
+  const [activeFilter, setActiveFilter] = useState("all");
   const [view, setView] = useState("grid");
   const [page, setPage] = useState(1);
   const [manageCourse, setManageCourse] = useState(null);
@@ -169,18 +149,13 @@ export default function TeacherCourses() {
 
   function openManage(course) {
     setCheckinByCourse((prev) =>
-      prev[course.code]
-        ? prev
-        : { ...prev, [course.code]: defaultCheckinRule(course) },
+      prev[course.code] ? prev : { ...prev, [course.code]: defaultCheckinRule(course) },
     );
     setManageCourse(course);
   }
 
   function updateRule(code, patch) {
-    setCheckinByCourse((prev) => ({
-      ...prev,
-      [code]: { ...prev[code], ...patch },
-    }));
+    setCheckinByCourse((prev) => ({ ...prev, [code]: { ...prev[code], ...patch } }));
   }
 
   function handleSaveRule(code) {
@@ -190,483 +165,313 @@ export default function TeacherCourses() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 font-sans flex">
-      {/* ---------- Sidebar ---------- */}
-      <aside
-        className={`${
-          sidebarOpen ? "w-64" : "w-0 lg:w-64"
-        } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
-      >
-        <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
-          <img
-            src={logoImg}
-            alt="CS FaceAttend"
-            className="h-10 w-auto object-contain"
-          />
-          <div className="leading-tight">
-            <div className="text-base font-bold text-slate-900 whitespace-nowrap">
-              CS FaceAttend
-            </div>
-            <div className="text-[10px] text-slate-400 whitespace-nowrap">
-              Computer Science AI Face Attendance System
-            </div>
-          </div>
+    <TeacherLayout
+      titleIcon={BookOpen}
+      titleKey="nav.courses"
+      subtitleKey="courses.subtitle"
+      headerExtra={
+        <button className="hidden sm:flex items-center gap-2 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shrink-0">
+          <CalendarDays className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          20 พฤษภาคม 2567
+          <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+        </button>
+      }
+    >
+      {savedCode && (
+        <div className="flex items-center gap-2 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900 text-emerald-600 dark:text-emerald-400 text-sm font-medium rounded-xl px-4 py-3">
+          <CheckCircle className="w-4 h-4" />
+          {t("courses.savedPrefix")} {savedCode} {t("courses.savedSuffix")}
         </div>
+      )}
 
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          {navItems.map(({ icon: Icon, label, to, active }) => (
-            <Link
-              key={label}
-              to={to}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-                active
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500" />
+          <input
+            type="text"
+            placeholder={t("courses.searchPlaceholder")}
+            className="pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 w-56"
+          />
+        </div>
+        <button className="flex items-center gap-2 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+          <SlidersHorizontal className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+          {t("common.actions.filter")}
+        </button>
+        <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm shadow-blue-200 dark:shadow-blue-950">
+          <Plus className="w-4 h-4" />
+          {t("courses.createCourse")}
+        </button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+        <StatCard
+          icon={<BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
+          iconBg="bg-blue-100 dark:bg-blue-950/40"
+          label={t("courses.stats.totalCourses")}
+          value="5"
+          sub={t("courses.stats.totalCoursesSub")}
+        />
+        <StatCard
+          icon={<UsersRound className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
+          iconBg="bg-emerald-100 dark:bg-emerald-950/40"
+          label={t("courses.stats.totalStudents")}
+          value="128"
+          sub={t("courses.stats.totalStudentsSub")}
+        />
+        <StatCard
+          icon={<CalendarCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />}
+          iconBg="bg-purple-100 dark:bg-purple-950/40"
+          label={t("courses.stats.checkinToday")}
+          value="4"
+          sub={t("courses.stats.checkinTodaySub")}
+        />
+        <StatCard
+          icon={<BarChart3 className="w-6 h-6 text-amber-600 dark:text-amber-400" />}
+          iconBg="bg-amber-100 dark:bg-amber-950/40"
+          label={t("courses.stats.attendanceRate")}
+          value={
+            <span className="flex items-center gap-1">
+              74.22%
+              <TrendingUp className="w-4 h-4 text-emerald-500" />
+            </span>
+          }
+          sub={t("courses.stats.attendanceRateSub")}
+        />
+        <StatCard
+          icon={<UserX className="w-6 h-6 text-red-500 dark:text-red-400" />}
+          iconBg="bg-red-100 dark:bg-red-950/40"
+          label={t("courses.stats.absentStudents")}
+          value="33"
+          sub="25.78%"
+          subColor="text-red-500 dark:text-red-400"
+        />
+      </div>
+
+      {/* Filter tabs + view toggle */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {filterTabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveFilter(tab.key)}
+              className={`text-sm font-medium px-4 py-2 rounded-xl border transition-colors ${
+                activeFilter === tab.key
+                  ? "bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900 text-blue-600 dark:text-blue-400"
+                  : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
               }`}
             >
-              <Icon className="w-5 h-5 shrink-0" />
-              {label}
-            </Link>
+              {t(tab.labelKey)}
+            </button>
           ))}
-        </nav>
-
-        <div className="px-4 pb-4">
-          <Link
-            to="/login"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
-          >
-            <LogOut className="w-5 h-5 shrink-0" />
-            ออกจากระบบ
-          </Link>
         </div>
 
-        <div className="p-4">
-          <div className="rounded-2xl bg-blue-50 border border-blue-100 p-5 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-3">
-              <ShieldCheck className="w-7 h-7 text-white" />
-            </div>
-            <div className="text-sm font-semibold text-slate-800">
-              ความปลอดภัยของข้อมูล
-            </div>
-            <div className="text-xs text-slate-500 leading-relaxed mt-1.5">
-              ระบบรักษาข้อมูล ด้วย AI และการเข้ารหัส
-            </div>
-            <div className="inline-flex items-center gap-1.5 mt-4 bg-emerald-500 text-white text-xs font-semibold px-3 py-1.5 rounded-full">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              ระบบปลอดภัย 100%
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ---------- Main ---------- */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center gap-4 px-6 shrink-0">
+        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-1">
           <button
-            onClick={() => setSidebarOpen((v) => !v)}
-            className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors shrink-0 lg:hidden"
-            aria-label="สลับเมนู"
+            onClick={() => setView("grid")}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
+              view === "grid" ? "bg-blue-600 text-white" : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+            }`}
           >
-            <LayoutDashboard className="w-5 h-5" />
+            <LayoutGrid className="w-4 h-4" />
           </button>
-
-          <div>
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-slate-700" />
-              <h1 className="text-lg font-bold text-slate-900">
-                รายวิชาของฉัน
-              </h1>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              จัดการรายวิชาและข้อมูลการเข้าเรียนของคุณ
-            </p>
-          </div>
-
-          <div className="flex-1" />
-
-          <button className="hidden sm:flex items-center gap-2 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-600 font-medium hover:bg-slate-50 transition-colors shrink-0">
-            <CalendarDays className="w-4 h-4 text-slate-400" />
-            20 พฤษภาคม 2567
-            <ChevronDown className="w-4 h-4 text-slate-400" />
+          <button
+            onClick={() => setView("list")}
+            className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
+              view === "list" ? "bg-blue-600 text-white" : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+            }`}
+          >
+            <List className="w-4 h-4" />
           </button>
+        </div>
+      </div>
 
-          <button className="relative w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors shrink-0">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
-              3
-            </span>
-          </button>
-
-          <button className="flex items-center gap-2.5 pl-2 shrink-0">
-            <img
-              src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop&crop=faces"
-              alt="อาจารย์ณัฐวุฒิ"
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            <div className="text-left hidden sm:block">
-              <div className="text-sm font-semibold text-slate-800 whitespace-nowrap">
-                อาจารย์ณัฐวุฒิ
-              </div>
-              <div className="text-xs text-slate-400 whitespace-nowrap">
-                อาจารย์
-              </div>
-            </div>
-            <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
-          </button>
-        </header>
-
-        {/* Body */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-5">
-          {savedCode && (
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-medium rounded-xl px-4 py-3">
-              <CheckCircle className="w-4 h-4" />
-              บันทึกการตั้งค่าการเช็คชื่อของวิชา {savedCode} เรียบร้อยแล้ว
-            </div>
-          )}
-
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center justify-end gap-3">
-            <div className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="ค้นหารายวิชา..."
-                className="pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200 w-56"
-              />
-            </div>
-            <button className="flex items-center gap-2 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-600 font-medium hover:bg-slate-50 transition-colors">
-              <SlidersHorizontal className="w-4 h-4 text-slate-400" />
-              ตัวกรอง
-            </button>
-            <button className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow-sm shadow-blue-200">
-              <Plus className="w-4 h-4" />
-              สร้างรายวิชา
-            </button>
-          </div>
-
-          {/* Stat cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-            <StatCard
-              icon={<BookOpen className="w-6 h-6 text-blue-600" />}
-              iconBg="bg-blue-100"
-              label="รายวิชาทั้งหมด"
-              value="5"
-              sub="รายวิชาที่สอน"
-            />
-            <StatCard
-              icon={<UsersRound className="w-6 h-6 text-emerald-600" />}
-              iconBg="bg-emerald-100"
-              label="นักศึกษาทั้งหมด"
-              value="128"
-              sub="นักศึกษาที่สอน"
-            />
-            <StatCard
-              icon={<CalendarCheck className="w-6 h-6 text-purple-600" />}
-              iconBg="bg-purple-100"
-              label="เช็คชื่อวันนี้"
-              value="4"
-              sub="ชั้นเรียนที่เช็คชื่อแล้ว"
-            />
-            <StatCard
-              icon={<BarChart3 className="w-6 h-6 text-amber-600" />}
-              iconBg="bg-amber-100"
-              label="อัตราการเข้าเรียน"
-              value={
-                <span className="flex items-center gap-1">
-                  74.22%
-                  <TrendingUp className="w-4 h-4 text-emerald-500" />
-                </span>
-              }
-              sub="ของทั้งหมด"
-            />
-            <StatCard
-              icon={<UserX className="w-6 h-6 text-red-500" />}
-              iconBg="bg-red-100"
-              label="นักศึกษาขาดเรียน"
-              value="33"
-              sub="25.78% ของทั้งหมด"
-              subColor="text-red-500"
-            />
-          </div>
-
-          {/* Filter tabs + view toggle */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              {filterTabs.map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveFilter(tab)}
-                  className={`text-sm font-medium px-4 py-2 rounded-xl border transition-colors ${
-                    activeFilter === tab
-                      ? "bg-blue-50 border-blue-200 text-blue-600"
-                      : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  {tab}
+      {/* Course cards */}
+      <div className={view === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" : "flex flex-col gap-4"}>
+        {courses.map((c) => {
+          const Icon = c.icon;
+          const isNotStarted = c.status === "notstarted";
+          return (
+            <div key={c.code} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-white ${c.iconBg}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-blue-600 dark:text-blue-400 text-sm">{c.code}</div>
+                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 leading-snug">{c.name}</div>
+                    <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                      {c.term} • {t("courses.card.room")} {c.room}
+                    </div>
+                  </div>
+                </div>
+                <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shrink-0">
+                  <MoreVertical className="w-4 h-4" />
                 </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
-              <button
-                onClick={() => setView("grid")}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
-                  view === "grid"
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setView("list")}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
-                  view === "list"
-                    ? "bg-blue-600 text-white"
-                    : "text-slate-400 hover:text-slate-600"
-                }`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Course cards */}
-          <div
-            className={
-              view === "grid"
-                ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
-                : "flex flex-col gap-4"
-            }
-          >
-            {courses.map((c) => {
-              const Icon = c.icon;
-              const sm = statusMeta[c.status];
-              const isNotStarted = c.status === "notstarted";
-              return (
-                <div
-                  key={c.code}
-                  className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 text-white ${c.iconBg}`}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <div className="font-bold text-blue-600 text-sm">
-                          {c.code}
-                        </div>
-                        <div className="text-sm font-semibold text-slate-800 leading-snug">
-                          {c.name}
-                        </div>
-                        <div className="text-xs text-slate-400 mt-0.5">
-                          {c.term} • ห้อง {c.room}
-                        </div>
-                      </div>
-                    </div>
-                    <button className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-50 transition-colors shrink-0">
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  <span
-                    className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full mb-3 ${sm.cls}`}
-                  >
-                    {sm.label}
-                  </span>
-
-                  <div className="grid grid-cols-3 gap-2 text-xs mb-2">
-                    <div>
-                      <div className="flex items-center gap-1 text-slate-400">
-                        <UsersRound className="w-3.5 h-3.5" />
-                        นักศึกษา
-                      </div>
-                      <div className="font-bold text-slate-800 mt-0.5">
-                        {c.students} คน
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1 text-slate-400">
-                        <ScanFace className="w-3.5 h-3.5" />
-                        เช็คชื่อวันนี้
-                      </div>
-                      <div className="font-bold text-slate-800 mt-0.5">
-                        {c.pct}%
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1 text-slate-400">
-                        <Clock className="w-3.5 h-3.5" />
-                        เวลาเรียน
-                      </div>
-                      <div className="font-bold text-slate-800 mt-0.5">
-                        {c.time}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden mb-4">
-                    <div
-                      className={`h-full rounded-full ${c.barColor}`}
-                      style={{ width: `${c.pct}%` }}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      onClick={() => openManage(c)}
-                      className="flex items-center justify-center gap-1 text-[11px] font-semibold text-blue-600 border border-blue-200 rounded-lg py-2 hover:bg-blue-50 transition-colors"
-                    >
-                      <Wrench className="w-3.5 h-3.5" />
-                      จัดการรายวิชา
-                    </button>
-                    <button
-                      disabled={isNotStarted}
-                      className={`flex items-center justify-center gap-1 text-[11px] font-semibold rounded-lg py-2 transition-colors ${
-                        isNotStarted
-                          ? "text-slate-300 border border-slate-100 cursor-not-allowed"
-                          : "text-emerald-600 border border-emerald-200 hover:bg-emerald-50"
-                      }`}
-                    >
-                      <ScanFace className="w-3.5 h-3.5" />
-                      เช็คชื่อ
-                    </button>
-                    <button className="flex items-center justify-center gap-1 text-[11px] font-semibold text-purple-600 border border-purple-200 rounded-lg py-2 hover:bg-purple-50 transition-colors">
-                      <BarChart3 className="w-3.5 h-3.5" />
-                      สถิติ
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Create new course card */}
-            <button className="flex flex-col items-center justify-center gap-3 bg-white rounded-2xl border-2 border-dashed border-slate-200 hover:border-blue-300 hover:bg-blue-50/40 transition-colors p-8 text-center min-h-[260px]">
-              <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center">
-                <Plus className="w-7 h-7 text-blue-500" />
               </div>
-              <div>
-                <div className="font-bold text-slate-800">สร้างรายวิชาใหม่</div>
-                <div className="text-xs text-slate-400 mt-1">
-                  เพิ่มรายวิชาที่คุณต้องการสอน
-                </div>
-              </div>
-              <span className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm shadow-blue-200">
-                <Plus className="w-4 h-4" />
-                สร้างรายวิชา
+
+              <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full mb-3 ${statusCls[c.status]}`}>
+                {t(statusLabelKey[c.status])}
               </span>
-            </button>
-          </div>
 
-          {/* Pagination */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              {[1, 2].map((n) => (
+              <div className="grid grid-cols-3 gap-2 text-xs mb-2">
+                <div>
+                  <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500">
+                    <UsersRound className="w-3.5 h-3.5" />
+                    {t("courses.card.students")}
+                  </div>
+                  <div className="font-bold text-slate-800 dark:text-slate-100 mt-0.5">
+                    {c.students} {t("common.units.people")}
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500">
+                    <ScanFace className="w-3.5 h-3.5" />
+                    {t("courses.card.checkinToday")}
+                  </div>
+                  <div className="font-bold text-slate-800 dark:text-slate-100 mt-0.5">{c.pct}%</div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-1 text-slate-400 dark:text-slate-500">
+                    <Clock className="w-3.5 h-3.5" />
+                    {t("courses.card.classTime")}
+                  </div>
+                  <div className="font-bold text-slate-800 dark:text-slate-100 mt-0.5">{c.time}</div>
+                </div>
+              </div>
+
+              <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden mb-4">
+                <div className={`h-full rounded-full ${c.barColor}`} style={{ width: `${c.pct}%` }} />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
                 <button
-                  key={n}
-                  onClick={() => setPage(n)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
-                    page === n
-                      ? "bg-blue-600 text-white"
-                      : "border border-slate-200 text-slate-500 hover:bg-slate-50"
+                  onClick={() => openManage(c)}
+                  className="flex items-center justify-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 rounded-lg py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                >
+                  <Wrench className="w-3.5 h-3.5" />
+                  {t("courses.card.manage")}
+                </button>
+                <button
+                  disabled={isNotStarted}
+                  className={`flex items-center justify-center gap-1 text-[11px] font-semibold rounded-lg py-2 transition-colors ${
+                    isNotStarted
+                      ? "text-slate-300 dark:text-slate-600 border border-slate-100 dark:border-slate-800 cursor-not-allowed"
+                      : "text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
                   }`}
                 >
-                  {n}
+                  <ScanFace className="w-3.5 h-3.5" />
+                  {t("courses.card.checkin")}
                 </button>
-              ))}
-              <button
-                onClick={() => setPage((p) => Math.min(2, p + 1))}
-                disabled={page === 2}
-                className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-400 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+                <button className="flex items-center justify-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 rounded-lg py-2 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors">
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  {t("courses.card.stats")}
+                </button>
+              </div>
             </div>
+          );
+        })}
 
-            <button className="flex items-center gap-2 border border-slate-200 rounded-xl px-4 py-2 text-sm text-slate-600 font-medium hover:bg-slate-50 transition-colors">
-              แสดง 6 ต่อหน้า
-              <ChevronDown className="w-4 h-4 text-slate-400" />
-            </button>
+        {/* Create new course card */}
+        <button className="flex flex-col items-center justify-center gap-3 bg-white dark:bg-slate-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-blue-800 hover:bg-blue-50/40 dark:hover:bg-blue-950/20 transition-colors p-8 text-center min-h-[260px]">
+          <div className="w-14 h-14 rounded-full bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center">
+            <Plus className="w-7 h-7 text-blue-500 dark:text-blue-400" />
           </div>
-        </main>
+          <div>
+            <div className="font-bold text-slate-800 dark:text-slate-100">{t("courses.createNewTitle")}</div>
+            <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t("courses.createNewDesc")}</div>
+          </div>
+          <span className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm shadow-blue-200 dark:shadow-blue-950">
+            <Plus className="w-4 h-4" />
+            {t("courses.createCourse")}
+          </span>
+        </button>
+      </div>
 
-        <footer className="text-center text-xs text-slate-400 py-6">
-          © 2026 Computer Science AI Face Attendance System. All rights
-          reserved.
-        </footer>
+      {/* Pagination */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          {[1, 2].map((n) => (
+            <button
+              key={n}
+              onClick={() => setPage(n)}
+              className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors ${
+                page === n
+                  ? "bg-blue-600 text-white"
+                  : "border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+          <button
+            onClick={() => setPage((p) => Math.min(2, p + 1))}
+            disabled={page === 2}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <button className="flex items-center gap-2 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 text-sm text-slate-600 dark:text-slate-300 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+          {t("courses.perPage")}
+          <ChevronDown className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+        </button>
       </div>
 
       {/* ---------- Manage course modal ---------- */}
       {manageCourse && (
         <ManageCourseModal
           course={manageCourse}
-          rule={
-            checkinByCourse[manageCourse.code] ||
-            defaultCheckinRule(manageCourse)
-          }
+          rule={checkinByCourse[manageCourse.code] || defaultCheckinRule(manageCourse)}
           onChange={(patch) => updateRule(manageCourse.code, patch)}
           onClose={() => setManageCourse(null)}
           onSave={() => handleSaveRule(manageCourse.code)}
         />
       )}
-    </div>
+    </TeacherLayout>
   );
 }
 
 function StatCard({ icon, iconBg, label, value, sub, subColor }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4">
-      <div
-        className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}
-      >
-        {icon}
-      </div>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 flex items-center gap-4">
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
       <div className="min-w-0">
-        <div className="text-xs text-slate-500 font-medium truncate">
-          {label}
-        </div>
-        <div className="text-xl font-bold text-slate-900 leading-tight mt-0.5">
-          {value}
-        </div>
-        <div
-          className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400"}`}
-        >
-          {sub}
-        </div>
+        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{label}</div>
+        <div className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">{value}</div>
+        <div className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400 dark:text-slate-500"}`}>{sub}</div>
       </div>
     </div>
   );
 }
 
 function ManageCourseModal({ course, rule, onChange, onClose, onSave }) {
+  const { t } = useAppearanceSettings();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100">
+      <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 dark:border-slate-800">
           <div>
-            <div className="text-xs font-semibold text-blue-600">
-              {course.code}
-            </div>
-            <h3 className="font-bold text-slate-900">
-              จัดการรายวิชา — {course.name}
+            <div className="text-xs font-semibold text-blue-600 dark:text-blue-400">{course.code}</div>
+            <h3 className="font-bold text-slate-900 dark:text-slate-100">
+              {t("courses.modal.titlePrefix")} {course.name}
             </h3>
           </div>
           <button
             onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 transition-colors shrink-0"
+            className="w-9 h-9 flex items-center justify-center rounded-lg text-slate-400 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -674,56 +479,50 @@ function ManageCourseModal({ course, rule, onChange, onClose, onSave }) {
 
         <div className="p-6 space-y-5">
           <div className="flex items-center gap-2.5 mb-1">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <ScanFace className="w-4 h-4" />
             </div>
             <div>
-              <h4 className="font-bold text-slate-900 text-sm">
-                การเช็คชื่อด้วยใบหน้า
-              </h4>
-              <p className="text-[11px] text-slate-400">
-                ตั้งค่าเฉพาะวิชานี้ เนื่องจากแต่ละวิชาเรียนเวลาไม่เหมือนกัน
-              </p>
+              <h4 className="font-bold text-slate-900 dark:text-slate-100 text-sm">{t("courses.modal.faceCheckinTitle")}</h4>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">{t("courses.modal.faceCheckinDesc")}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                เปิดให้เช็คชื่อเวลา
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                {t("courses.modal.openTime")}
               </label>
               <input
                 type="time"
                 value={rule.start}
                 onChange={(e) => onChange({ start: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
               />
             </div>
             <div>
-              <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                ปิดรับเช็คชื่อเวลา
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                {t("courses.modal.closeTime")}
               </label>
               <input
                 type="time"
                 value={rule.end}
                 onChange={(e) => onChange({ end: e.target.value })}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm text-slate-700 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
               />
             </div>
           </div>
-          <p className="text-[11px] text-slate-400 -mt-3">
-            ค่าเริ่มต้นตั้งตามเวลาเรียนของวิชานี้ ({course.time})
+          <p className="text-[11px] text-slate-400 dark:text-slate-500 -mt-3">
+            {t("courses.modal.defaultNotePrefix")} ({course.time})
           </p>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-500">
-                เกณฑ์นับว่ามาสาย (นาทีหลังเริ่มเรียน)
-              </label>
-              <span className="text-sm font-bold text-slate-800">
-                {rule.lateThreshold} นาที
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400">{t("courses.modal.lateThreshold")}</label>
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">
+                {rule.lateThreshold} {t("common.units.minutes")}
               </span>
             </div>
             <input
@@ -731,22 +530,18 @@ function ManageCourseModal({ course, rule, onChange, onClose, onSave }) {
               min={1}
               max={30}
               value={rule.lateThreshold}
-              onChange={(e) =>
-                onChange({ lateThreshold: Number(e.target.value) })
-              }
+              onChange={(e) => onChange({ lateThreshold: Number(e.target.value) })}
               className="w-full accent-blue-600"
             />
           </div>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-500 flex items-center gap-1.5">
-                <Gauge className="w-3.5 h-3.5 text-slate-400" />
-                ความแม่นยำขั้นต่ำของ AI ในการจดจำใบหน้า
+              <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                <Gauge className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                {t("courses.modal.confidence")}
               </label>
-              <span className="text-sm font-bold text-slate-800">
-                {rule.confidence}%
-              </span>
+              <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{rule.confidence}%</span>
             </div>
             <input
               type="range"
@@ -756,28 +551,19 @@ function ManageCourseModal({ course, rule, onChange, onClose, onSave }) {
               onChange={(e) => onChange({ confidence: Number(e.target.value) })}
               className="w-full accent-blue-600"
             />
-            <p className="text-[11px] text-slate-400 mt-1">
-              ค่าที่สูงขึ้นช่วยลดการเช็คชื่อผิดคน
-              แต่อาจปฏิเสธใบหน้าที่ถูกต้องบ่อยขึ้น
-            </p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">{t("courses.modal.confidenceNote")}</p>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-slate-800">
-                อนุญาตเช็คชื่อด้วยตนเองสำรอง
-              </div>
-              <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                ให้นักศึกษากดเช็คชื่อเองได้เมื่อระบบจดจำใบหน้าไม่สำเร็จ
-              </div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t("courses.modal.manualFallback")}</div>
+              <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">{t("courses.modal.manualFallbackDesc")}</div>
             </div>
             <button
               type="button"
-              onClick={() =>
-                onChange({ allowManualFallback: !rule.allowManualFallback })
-              }
+              onClick={() => onChange({ allowManualFallback: !rule.allowManualFallback })}
               className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${
-                rule.allowManualFallback ? "bg-blue-600" : "bg-slate-200"
+                rule.allowManualFallback ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-700"
               }`}
               aria-pressed={rule.allowManualFallback}
             >
@@ -790,19 +576,19 @@ function ManageCourseModal({ course, rule, onChange, onClose, onSave }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
           <button
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 transition-colors"
+            className="px-4 py-2.5 rounded-xl text-sm font-medium text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
-            ยกเลิก
+            {t("common.actions.cancel")}
           </button>
           <button
             onClick={onSave}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm shadow-blue-100"
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm shadow-blue-100 dark:shadow-blue-950"
           >
             <Save className="w-4 h-4" />
-            บันทึกการตั้งค่า
+            {t("courses.modal.saveRule")}
           </button>
         </div>
       </div>
