@@ -1,12 +1,7 @@
 import {
-  BookOpen,
   Users,
   CheckCircle2,
   Loader2,
-  Circle,
-  UserCheck,
-  UserX,
-  CalendarCheck,
   CalendarDays,
 } from "lucide-react";
 import {
@@ -28,7 +23,7 @@ import TeacherLayout from "./TeacherLayout";
 import LoadState from "../LoadState";
 import { useAppearanceSettings } from "./useAppearanceSettings";
 import { colorOf, useTeacherData } from "./useTeacherData";
-import { addDays, countStatus, dailyTrend, groupBy, hhmm, isoDate, pct, thaiDate } from "../../lib/format";
+import { addDays, countStatus, dailyTrend, groupBy, hhmm, isoDate, pct, thaiDate, thaiDayMonth } from "../../lib/format";
 
 export default function TeacherDashboard() {
   const { t } = useAppearanceSettings();
@@ -38,20 +33,24 @@ export default function TeacherDashboard() {
     end: today,
   });
 
-  const todayRows = records.filter((r) => r.session_date === today);
-  const todayCount = countStatus(todayRows);
-  const totalStudents = classes.reduce((sum, c) => sum + c.student_count, 0);
-
   // ตัวเลือกรายวิชาของกราฟและสรุปวันนี้ ("" = ทุกรายวิชา)
   const [trendClass, setTrendClass] = useState("");
   const [summaryClass, setSummaryClass] = useState("");
+  const [recentClass, setRecentClass] = useState("");
   const ofClass = (rows, id) => (id ? rows.filter((r) => String(r.class_id) === id) : rows);
 
   // "เข้าเรียน" ในกราฟ = ตรงเวลา + สาย
   const attendanceTrend = dailyTrend(ofClass(records, trendClass)).map((d) => ({ ...d, present: d.present + d.late }));
 
-  const totalToday = todayRows.length;
-  const summaryRows = ofClass(todayRows, summaryClass);
+  // ถ้าวันนี้ไม่มีคาบเรียน ให้สรุปวันล่าสุดที่มีข้อมูลแทน
+  const classRecords = ofClass(records, summaryClass);
+  const hasToday = classRecords.some((r) => r.session_date === today);
+  const summaryDate = hasToday
+    ? today
+    : classRecords
+        .filter((r) => ["present", "late", "absent"].includes(r.status))
+        .reduce((latest, r) => (r.session_date > latest ? r.session_date : latest), "");
+  const summaryRows = classRecords.filter((r) => r.session_date === summaryDate);
   const summaryCount = countStatus(summaryRows);
   const todaySummary = [
     { name: t("common.status.present"), value: summaryCount.present, color: "#22c55e" },
@@ -74,23 +73,25 @@ export default function TeacherDashboard() {
     </select>
   );
 
-  // คาบเรียนวันนี้ (แถวละหนึ่งคาบ)
-  const todaySessions = [...groupBy(todayRows, (r) => r.session_id).values()]
+  // การเช็คชื่อล่าสุด (แถวละหนึ่งคาบ, ใหม่สุดก่อน) ไม่นับคาบที่ยังไม่ถึงเวลา
+  const recentSessions = [...groupBy(ofClass(records, recentClass), (r) => r.session_id).values()]
+    .filter((rows) => !rows.every((r) => r.status === "upcoming"))
     .map((rows) => {
       const first = rows[0];
       const c = countStatus(rows);
       const open = rows.some((r) => r.status === "open");
-      const upcoming = rows.every((r) => r.status === "upcoming");
       return {
         id: first.session_id,
-        time: hhmm(first.start_time),
+        sortKey: `${first.session_date} ${first.start_time || ""}`,
+        time: `${thaiDayMonth(first.session_date)} ${hhmm(first.start_time)}`,
         subject: `${first.course_code} ${first.course_name}`,
         room: first.class_code || "-",
-        attend: upcoming ? "-" : `${c.present + c.late}/${rows.length}`,
-        status: upcoming ? "notstarted" : open ? "progress" : "done",
+        attend: `${c.present + c.late}/${rows.length}`,
+        status: open ? "progress" : "done",
       };
     })
-    .sort((a, b) => (a.time < b.time ? -1 : 1));
+    .sort((a, b) => (a.sortKey < b.sortKey ? 1 : -1))
+    .slice(0, 5);
 
   const recordsByClass = groupBy(records, (r) => r.class_id);
   const myCourses = classes.map((cls) => {
@@ -127,52 +128,6 @@ export default function TeacherDashboard() {
       }
     >
       <LoadState loading={loading} error={error} onRetry={reload} />
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-        <StatCard
-          icon={<BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
-          iconBg="bg-blue-100 dark:bg-blue-950/40"
-          label={t("dashboard.stats.totalCourses")}
-          value={classes.length}
-          sub={t("dashboard.stats.totalCoursesSub")}
-          to="/teacher-courses"
-        />
-        <StatCard
-          icon={<Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
-          iconBg="bg-emerald-100 dark:bg-emerald-950/40"
-          label={t("dashboard.stats.totalStudents")}
-          value={totalStudents}
-          sub={t("dashboard.stats.totalStudentsSub")}
-          to="/teacher-students"
-        />
-        <StatCard
-          icon={<CalendarCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />}
-          iconBg="bg-purple-100 dark:bg-purple-950/40"
-          label={t("dashboard.stats.checkinToday")}
-          value={todaySessions.length}
-          sub={t("dashboard.stats.checkinTodaySub")}
-          to="/teacher-report"
-        />
-        <StatCard
-          icon={<UserCheck className="w-6 h-6 text-amber-600 dark:text-amber-400" />}
-          iconBg="bg-amber-100 dark:bg-amber-950/40"
-          label={t("dashboard.stats.present")}
-          value={todayCount.present + todayCount.late}
-          sub={`${pct(todayCount.present + todayCount.late, totalToday).toFixed(2)}%`}
-          subColor="text-emerald-600 dark:text-emerald-400"
-          to="/teacher-report"
-        />
-        <StatCard
-          icon={<UserX className="w-6 h-6 text-red-600 dark:text-red-400" />}
-          iconBg="bg-red-100 dark:bg-red-950/40"
-          label={t("dashboard.stats.absent")}
-          value={todayCount.absent}
-          sub={`${pct(todayCount.absent, totalToday).toFixed(2)}%`}
-          subColor="text-red-500 dark:text-red-400"
-          to="/teacher-report"
-        />
-      </div>
 
       {/* Trend chart + today summary */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-5">
@@ -213,12 +168,23 @@ export default function TeacherDashboard() {
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-6">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-            <h3 className="font-bold text-slate-900 dark:text-slate-100">{t("dashboard.todaySummaryTitle")}</h3>
+            <div>
+              <h3 className="font-bold text-slate-900 dark:text-slate-100">
+                {t(hasToday ? "dashboard.todaySummaryTitle" : "dashboard.latestSummaryTitle")}
+              </h3>
+              {!hasToday && (
+                <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
+                  {summaryDate ? thaiDate(summaryDate) : t("dashboard.noSummaryData")} · {t("live.noSessionToday")}
+                </div>
+              )}
+            </div>
             {courseSelect(summaryClass, setSummaryClass)}
           </div>
           <div className="relative h-40">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
+                {/* วงพื้นหลังสีเทา ให้เห็นวงแม้ยังไม่มีข้อมูล */}
+                <Pie data={[{ value: 1 }]} dataKey="value" innerRadius={48} outerRadius={68} fill="#e2e8f0" stroke="none" isAnimationActive={false} />
                 <Pie data={todaySummary} dataKey="value" innerRadius={48} outerRadius={68} paddingAngle={3} stroke="none">
                   {todaySummary.map((entry) => (
                     <Cell key={entry.name} fill={entry.color} />
@@ -250,7 +216,7 @@ export default function TeacherDashboard() {
           <div className="flex items-center justify-between bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-sm font-medium rounded-xl px-4 py-3 mt-4">
             <span className="flex items-center gap-2">
               <Users className="w-4 h-4" />
-              {t("dashboard.attendanceRateToday")}
+              {t(hasToday ? "dashboard.attendanceRateToday" : "dashboard.attendanceRate")}
             </span>
             <span className="font-bold">{summaryCount.rate.toFixed(2)}%</span>
           </div>
@@ -260,11 +226,9 @@ export default function TeacherDashboard() {
       {/* Recent check-ins table + courses */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5">
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-6 overflow-x-auto">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="font-bold text-slate-900 dark:text-slate-100">{t("dashboard.recentCheckins")}</h3>
-            <Link to="/teacher-history" className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline">
-              {t("common.actions.viewAll")}
-            </Link>
+            {courseSelect(recentClass, setRecentClass)}
           </div>
           <table className="w-full text-sm min-w-[500px]">
             <thead>
@@ -277,14 +241,14 @@ export default function TeacherDashboard() {
               </tr>
             </thead>
             <tbody>
-              {todaySessions.length === 0 && (
+              {recentSessions.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-6 text-center text-sm text-slate-400 dark:text-slate-500">
-                    {t("live.noSessionToday")}
+                    {t("dashboard.noSummaryData")}
                   </td>
                 </tr>
               )}
-              {todaySessions.map((r) => (
+              {recentSessions.map((r) => (
                 <tr key={r.id} className="border-b border-slate-50 dark:border-slate-800/60 last:border-0">
                   <td className="py-3 pr-3 text-slate-500 dark:text-slate-400 whitespace-nowrap">{r.time}</td>
                   <td className="py-3 pr-3 text-slate-800 dark:text-slate-100 font-medium whitespace-nowrap">{r.subject}</td>
@@ -301,12 +265,6 @@ export default function TeacherDashboard() {
                       <span className="inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400 text-xs font-semibold">
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         {t("common.status.inProgress")}
-                      </span>
-                    )}
-                    {r.status === "notstarted" && (
-                      <span className="inline-flex items-center gap-1.5 text-slate-400 dark:text-slate-500 text-xs font-semibold">
-                        <Circle className="w-3.5 h-3.5" />
-                        {t("common.status.notStarted")}
                       </span>
                     )}
                   </td>
@@ -328,7 +286,11 @@ export default function TeacherDashboard() {
               <div className="text-sm text-slate-400 dark:text-slate-500">{t("live.noCourses")}</div>
             )}
             {myCourses.map((c, i) => (
-              <div key={c.id} className="flex items-center gap-3">
+              <Link
+                key={c.id}
+                to={`/teacher-report?class=${c.id}`}
+                className="flex items-center gap-3 -mx-2 px-2 py-1 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 font-bold text-xs ${colorOf(i).icon}`}>
                   {c.code.split("-").pop()}
                 </div>
@@ -340,28 +302,12 @@ export default function TeacherDashboard() {
                   <div className={`text-xs font-medium ${c.statusColor}`}>{c.status}</div>
                 </div>
                 <RingBadge percent={c.pct} />
-              </div>
+              </Link>
             ))}
           </div>
         </div>
       </div>
     </TeacherLayout>
-  );
-}
-
-function StatCard({ icon, iconBg, label, value, sub, subColor, to }) {
-  return (
-    <Link
-      to={to}
-      className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 flex items-center gap-4 hover:shadow-md hover:border-blue-200 dark:hover:border-blue-900 transition"
-    >
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-      <div className="min-w-0">
-        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{label}</div>
-        <div className="text-2xl font-bold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">{value}</div>
-        <div className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400 dark:text-slate-500"}`}>{sub}</div>
-      </div>
-    </Link>
   );
 }
 

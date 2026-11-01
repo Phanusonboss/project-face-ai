@@ -6,9 +6,7 @@ import {
   CheckCircle,
   CalendarDays,
   UsersRound,
-  CalendarCheck,
   BarChart3,
-  UserX,
   Search,
   Plus,
   LayoutGrid,
@@ -68,9 +66,6 @@ export default function TeacherCourses() {
   const [startingId, setStartingId] = useState(null);
 
   const recordsByClass = groupBy(records, (r) => r.class_id);
-  const todayRows = records.filter((r) => r.session_date === today);
-  const todayCount = countStatus(todayRows);
-  const overall = countStatus(records);
 
   const courses = classes.map((cls, i) => {
     const rows = recordsByClass.get(cls.id) || [];
@@ -110,7 +105,6 @@ export default function TeacherCourses() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
   const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-  const todaySessions = new Set(todayRows.map((r) => r.session_id)).size;
 
   function handleSaved(cls) {
     setManageCls(null);
@@ -192,46 +186,6 @@ export default function TeacherCourses() {
             className="pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-700 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900 w-56"
           />
         </div>
-      </div>
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
-        <StatCard
-          icon={<BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
-          iconBg="bg-blue-100 dark:bg-blue-950/40"
-          label={t("courses.stats.totalCourses")}
-          value={classes.length}
-          sub={t("courses.stats.totalCoursesSub")}
-        />
-        <StatCard
-          icon={<UsersRound className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
-          iconBg="bg-emerald-100 dark:bg-emerald-950/40"
-          label={t("courses.stats.totalStudents")}
-          value={classes.reduce((sum, c) => sum + c.student_count, 0)}
-          sub={t("courses.stats.totalStudentsSub")}
-        />
-        <StatCard
-          icon={<CalendarCheck className="w-6 h-6 text-purple-600 dark:text-purple-400" />}
-          iconBg="bg-purple-100 dark:bg-purple-950/40"
-          label={t("courses.stats.checkinToday")}
-          value={todaySessions}
-          sub={t("courses.stats.checkinTodaySub")}
-        />
-        <StatCard
-          icon={<BarChart3 className="w-6 h-6 text-amber-600 dark:text-amber-400" />}
-          iconBg="bg-amber-100 dark:bg-amber-950/40"
-          label={t("courses.stats.attendanceRate")}
-          value={`${overall.rate.toFixed(2)}%`}
-          sub={t("courses.stats.attendanceRateSub")}
-        />
-        <StatCard
-          icon={<UserX className="w-6 h-6 text-red-500 dark:text-red-400" />}
-          iconBg="bg-red-100 dark:bg-red-950/40"
-          label={t("courses.stats.absentStudents")}
-          value={todayCount.absent}
-          sub={`${pct(todayCount.absent, todayCount.total).toFixed(2)}%`}
-          subColor="text-red-500 dark:text-red-400"
-        />
       </div>
 
       {/* Filter tabs + view toggle */}
@@ -447,18 +401,5 @@ export default function TeacherCourses() {
         />
       )}
     </TeacherLayout>
-  );
-}
-
-function StatCard({ icon, iconBg, label, value, sub, subColor }) {
-  return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5 flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-      <div className="min-w-0">
-        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{label}</div>
-        <div className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight mt-0.5">{value}</div>
-        <div className={`text-xs mt-0.5 truncate ${subColor || "text-slate-400 dark:text-slate-500"}`}>{sub}</div>
-      </div>
-    </div>
   );
 }

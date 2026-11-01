@@ -55,6 +55,7 @@ export function directAbsentDeduction(rule) {
 }
 
 const round2 = (n) => Math.round(n * 100) / 100;
+const SHEET_FULL = 10;
 
 function computeScoreDirect(student, rule) {
   const latePenalty = (student.lateRecords || []).reduce((sum, m) => sum + latePenaltyFor(m, rule.lateTiers), 0);
@@ -115,7 +116,7 @@ const dmy = (iso) => {
 
 /**
  * ตารางคะแนนเข้าเรียนรายคาบของ 1 คลาส (รูปแบบเดียวกับใบคะแนนมาเรียนใน Excel):
- *   ลำดับที่ | รหัสนักศึกษา | ชื่อ-นามสกุล | สาขา | วันที่ 1 … วันที่ N | รวม | คะแนน (เต็ม X) | หมายเหตุ
+ *   ลำดับที่ | รหัสนักศึกษา | ชื่อ-นามสกุล | สาขา | วันที่ 1 … วันที่ N | รวม | คะแนน (เต็ม 10) | หมายเหตุ
  *   แถวแรกใต้หัวตาราง = คะแนนเต็มของแต่ละคาบ
  *
  * students = [{ id, code, name, major, score, note }] — score คือคะแนนจริงที่ใช้ (รวมที่อาจารย์แก้เอง)
@@ -129,6 +130,8 @@ export function buildScoreSheet({ cls, rule, students, records }) {
   const byCell = new Map(finalRecords.map((r) => [`${r.session_id}:${r.student_id}`, r]));
   const perFull = round2(sessionFullPoints(rule));
   const totalFull = round2(perFull * sessions.length);
+  // คอลัมน์คะแนนในไฟล์ใช้สเกลเต็ม 10 เสมอ (แปลงสัดส่วนจากคะแนนเต็มที่ตั้งไว้)
+  const toTen = (score) => (rule.full ? round2((Number(score) / rule.full) * SHEET_FULL) : 0);
 
   const headers = [
     "ลำดับที่",
@@ -137,17 +140,17 @@ export function buildScoreSheet({ cls, rule, students, records }) {
     "สาขา",
     ...sessions.map((s) => dmy(s.session_date)),
     "รวม",
-    `คะแนน (เต็ม ${rule.full})`,
+    `คะแนน (เต็ม ${SHEET_FULL})`,
     "หมายเหตุ",
   ];
-  const fullRow = ["", "", "คะแนนเต็ม", "", ...sessions.map(() => perFull), totalFull, rule.full, ""];
+  const fullRow = ["", "", "คะแนนเต็ม", "", ...sessions.map(() => perFull), totalFull, SHEET_FULL, ""];
   const rows = students.map((s, i) => {
     const cells = sessions.map((sess) => {
       const r = byCell.get(`${sess.session_id}:${s.id}`);
       return r ? round2(sessionPoints(r, rule)) : "";
     });
     const total = round2(cells.reduce((sum, c) => sum + (c === "" ? 0 : c), 0));
-    return [i + 1, s.code, s.name, s.major || "", ...cells, total, s.score, s.note || ""];
+    return [i + 1, s.code, s.name, s.major || "", ...cells, total, toTen(s.score), s.note || ""];
   });
 
   const course = `${cls.course_code || "-"} ${cls.course_name || ""}`.trim();
