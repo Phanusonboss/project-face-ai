@@ -21,14 +21,15 @@ import {
   BookOpen,
   Trash2,
   PlayCircle,
+  Pencil,
 } from "lucide-react";
 import TeacherLayout from "./TeacherLayout";
 import LoadState from "../LoadState";
 import { useAppearanceSettings } from "./useAppearanceSettings";
 import { colorOf, useTeacherData } from "./useTeacherData";
 import { api } from "../../lib/api";
-import { CreateCourseModal, ManageCourseModal } from "./CourseModals";
-import { classPhase, countStatus, groupBy, isoDate, pct, termLabel, thaiDate, timeRange } from "../../lib/format";
+import { CreateCourseModal, EditCourseModal, ManageCourseModal } from "./CourseModals";
+import { classPhase, countStatus, groupBy, isoDate, pct, termLabel, thaiDate, thaiDayMonth, timeRange } from "../../lib/format";
 
 const filterTabs = [
   { key: "notstarted", labelKey: "courses.filters.notStarted" },
@@ -61,6 +62,7 @@ export default function TeacherCourses() {
   const [search, setSearch] = useState("");
   const [manageCls, setManageCls] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [editCls, setEditCls] = useState(null);
   const [savedCode, setSavedCode] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [startingId, setStartingId] = useState(null);
@@ -232,8 +234,9 @@ export default function TeacherCourses() {
       <div className={view === "grid" ? "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" : "flex flex-col gap-4"}>
         {visible.map((c) => {
           const Icon = c.icon;
-          // กำลังสอน / สิ้นสุดแล้ว: ดูสถิติและลบได้เท่านั้น
+          // กำลังสอน: แก้ไข (รวมงดสอนวันนี้) + ดูสถิติ / สิ้นสุดแล้ว: ดูสถิติและลบได้เท่านั้น
           const readOnly = c.status !== "notstarted";
+          const editable = c.status === "teaching";
           return (
             <div key={c.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-5">
               <div className="flex items-start justify-between mb-2">
@@ -260,9 +263,18 @@ export default function TeacherCourses() {
                 </button>
               </div>
 
-              <span className={`inline-block text-[11px] font-semibold px-2.5 py-1 rounded-full mb-3 ${statusCls[c.status]}`}>
-                {t(statusLabelKey[c.status])}
-              </span>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${statusCls[c.status]}`}>
+                  {t(statusLabelKey[c.status])}
+                </span>
+                {editable && c.cls.cancelled_dates?.length > 0 && (
+                  <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-500 dark:text-red-400">
+                    {c.cls.cancelled_today
+                      ? t("courses.cancelToday")
+                      : `${t("courses.cancelPrefix")} ${thaiDayMonth(c.cls.cancelled_dates[0])}`}
+                  </span>
+                )}
+              </div>
 
               <div className="grid grid-cols-3 gap-2 text-xs mb-2">
                 <div>
@@ -294,7 +306,7 @@ export default function TeacherCourses() {
                 <div className={`h-full rounded-full ${c.barColor}`} style={{ width: `${c.pct}%` }} />
               </div>
 
-              <div className={`grid gap-2 ${readOnly ? "grid-cols-1" : "grid-cols-2"}`}>
+              <div className={`grid gap-2 ${readOnly && !editable ? "grid-cols-1" : "grid-cols-2"}`}>
                 {!readOnly ? (
                   <>
                     <button
@@ -314,6 +326,16 @@ export default function TeacherCourses() {
                     </button>
                   </>
                 ) : (
+                <>
+                {editable && (
+                  <button
+                    onClick={() => setEditCls(c.cls)}
+                    className="flex items-center justify-center gap-1 text-[11px] font-semibold text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900 rounded-lg py-2 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    {t("courses.card.edit")}
+                  </button>
+                )}
                 <Link
                   to={`/teacher-report?class=${c.id}`}
                   className="flex items-center justify-center gap-1 text-[11px] font-semibold text-purple-600 dark:text-purple-400 border border-purple-200 dark:border-purple-900 rounded-lg py-2 hover:bg-purple-50 dark:hover:bg-purple-950/40 transition-colors"
@@ -321,6 +343,7 @@ export default function TeacherCourses() {
                   <BarChart3 className="w-3.5 h-3.5" />
                   {t("courses.card.stats")}
                 </Link>
+                </>
                 )}
               </div>
             </div>
@@ -389,6 +412,13 @@ export default function TeacherCourses() {
             reload();
           }}
           onSaved={(close = true) => (close ? handleSaved(manageCls) : reload())}
+        />
+      )}
+      {editCls && (
+        <EditCourseModal
+          cls={editCls}
+          onClose={() => setEditCls(null)}
+          onSaved={() => handleSaved(editCls)}
         />
       )}
       {creating && (

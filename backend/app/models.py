@@ -10,6 +10,7 @@ users, departments, students, teachers, courses, classes, enrollments,
 attendance_sessions, attendance_details, face_profiles, face_approvals,
 attendance_score_rules, late_tiers, student_scores, announcements
 """
+import datetime as dt
 import enum
 
 from sqlalchemy import (
@@ -24,6 +25,7 @@ from sqlalchemy import (
     String,
     Text,
     Time,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -263,6 +265,9 @@ class Class(Base):
         cascade="all, delete-orphan",
         order_by="(ClassSchedule.weekday, ClassSchedule.start_time)",
     )
+    cancellations = relationship(
+        "ClassCancellation", back_populates="class_", cascade="all, delete-orphan"
+    )
 
     # ข้อมูลประกอบสำหรับ ClassOut (ไม่ใช่คอลัมน์ในฐานข้อมูล)
     @property
@@ -289,6 +294,17 @@ class Class(Base):
     def student_count(self) -> int:
         return sum(1 for e in self.enrollments if e.status == EnrollmentStatus.enrolled)
 
+    @property
+    def cancelled_today(self) -> bool:
+        today = dt.date.today()
+        return any(c.cancel_date == today for c in self.cancellations)
+
+    @property
+    def cancelled_dates(self) -> list[dt.date]:
+        """วันที่งดสอนตั้งแต่วันนี้เป็นต้นไป (วันที่ผ่านไปแล้วเก็บไว้ไม่ให้ระบบสร้างคาบย้อนหลัง แต่ไม่ต้องแสดง)"""
+        today = dt.date.today()
+        return sorted(c.cancel_date for c in self.cancellations if c.cancel_date >= today)
+
 
 # ---------------------------------------------------------------------------
 # class_schedules: วันและเวลาเรียนประจำสัปดาห์ (1 คลาสเรียนได้หลายครั้งต่อสัปดาห์)
@@ -304,8 +320,28 @@ class ClassSchedule(Base):
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)  # 0=จันทร์ ... 6=อาทิตย์
     start_time: Mapped[object] = mapped_column(Time, nullable=False)
     end_time: Mapped[object] = mapped_column(Time, nullable=False)
+    # สร้างคาบตามช่วงเรียนนี้ตั้งแต่วันนี้เป็นต้นไป (NULL = ตั้งแต่เริ่มการสอน)
+    # ใช้กับช่วงเรียนที่เพิ่ม/แก้ระหว่างเทอม จะได้ไม่เติมคาบย้อนหลังให้กลายเป็นขาดเรียน
+    effective_from: Mapped[object | None] = mapped_column(Date, nullable=True)
 
     class_ = relationship("Class", back_populates="schedules")
+
+
+# ---------------------------------------------------------------------------
+# class_cancellations: วันที่อาจารย์งดสอน (นักศึกษาเช็คชื่อไม่ได้ และไม่นับขาดในวันนั้น)
+# ---------------------------------------------------------------------------
+class ClassCancellation(Base):
+    __tablename__ = "class_cancellations"
+    __table_args__ = (UniqueConstraint("class_id", "cancel_date"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    class_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("classes.id", ondelete="CASCADE"), nullable=False
+    )
+    cancel_date: Mapped[object] = mapped_column(Date, nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime, server_default=func.now())
+
+    class_ = relationship("Class", back_populates="cancellations")
 
 
 # ---------------------------------------------------------------------------

@@ -69,6 +69,7 @@ def sync_scheduled_sessions(db: Session, today: dt.date | None = None) -> None:
     สร้างคาบเช็คชื่อตามตารางเรียนประจำสัปดาห์ (class_schedules) ให้คลาสที่ "เริ่มการสอน" แล้ว
     ตั้งแต่วันที่กดเริ่มการสอน (หรือวันเริ่มการสอน ถ้าช้ากว่า) จนถึงวันนี้/วันสิ้นสุดการสอน
     เติมย้อนหลังด้วย เพื่อให้วันที่ไม่มีใครเปิดระบบยังนับขาดได้ถูกต้อง
+    ข้ามวันที่อาจารย์งดสอน และช่วงเรียนที่เพิ่มระหว่างเทอมเริ่มนับตั้งแต่ effective_from
     """
     today = today or dt.date.today()
     classes = db.query(Class).filter(Class.started_at.isnot(None), Class.schedules.any()).all()
@@ -81,6 +82,7 @@ def sync_scheduled_sessions(db: Session, today: dt.date | None = None) -> None:
         if first > last:
             continue
         # (วันที่, เวลาเริ่ม) ของคาบที่มีอยู่แล้ว — วันเดียวกันมีได้หลายคาบถ้าเรียนหลายช่วง
+        cancelled = {c.cancel_date for c in class_.cancellations}
         existing = {
             tuple(row)
             for row in db.query(AttendanceSession.session_date, AttendanceSession.start_time).filter(
@@ -90,9 +92,10 @@ def sync_scheduled_sessions(db: Session, today: dt.date | None = None) -> None:
             )
         }
         for slot in class_.schedules:
-            day = first + dt.timedelta(days=(slot.weekday - first.weekday()) % 7)
+            slot_first = max(first, slot.effective_from) if slot.effective_from else first
+            day = slot_first + dt.timedelta(days=(slot.weekday - slot_first.weekday()) % 7)
             while day <= last:
-                if (day, slot.start_time) not in existing:
+                if day not in cancelled and (day, slot.start_time) not in existing:
                     db.add(
                         AttendanceSession(
                             class_id=class_.id,

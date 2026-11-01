@@ -5,7 +5,17 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.deps import ensure_course_owner, get_current_user, require_teacher
-from app.models import Class, ClassSchedule, Course, Enrollment, Student, User, UserRole
+from app.models import (
+    AttendanceSession,
+    Class,
+    ClassCancellation,
+    ClassSchedule,
+    Course,
+    Enrollment,
+    Student,
+    User,
+    UserRole,
+)
 from app.routers.students import to_student_out
 from app.schemas import ClassCreate, ClassOut, ClassUpdate, EnrollmentCreate, EnrollmentOut
 
@@ -52,6 +62,32 @@ def validate_schedules(class_: Class) -> None:
 
 def build_schedules(items) -> list[ClassSchedule]:
     return [ClassSchedule(**item.model_dump()) for item in items]
+
+
+def replace_schedules(db: Session, class_: Class, items) -> None:
+    """
+    เปลี่ยนตารางเรียน: คลาสที่ยังไม่เริ่มสอนแทนที่ได้เลย
+    คลาสที่กำลังสอน ช่วงเรียนเดิมคง effective_from ไว้ ช่วงเรียนใหม่เริ่มนับตั้งแต่วันนี้
+    (ไม่เติมคาบย้อนหลังให้นักศึกษาขาดเรียน) และลบคาบวันนี้ที่ไม่ตรงตารางใหม่และยังไม่มีใครเช็คชื่อ
+    """
+    if class_.started_at is None:
+        class_.schedules = build_schedules(items)
+        return
+    today = dt.date.today()
+    old = {(s.weekday, s.start_time, s.end_time): s.effective_from for s in class_.schedules}
+    new = build_schedules(items)
+    for slot in new:
+        key = (slot.weekday, slot.start_time, slot.end_time)
+        slot.effective_from = old[key] if key in old else today
+    class_.schedules = new
+    keep = {(s.start_time, s.end_time) for s in new if s.weekday == today.weekday()}
+    for session in (
+        db.query(AttendanceSession)
+        .filter(AttendanceSession.class_id == class_.id, AttendanceSession.session_date == today)
+        .all()
+    ):
+        if (session.start_time, session.end_time) not in keep and not session.attendance_details:
+            db.delete(session)
 
 
 @router.get("", response_model=list[ClassOut])
@@ -126,7 +162,7 @@ def update_class(
     for key, value in data.items():
         setattr(class_, key, value)
     if payload.schedules is not None:
-        class_.schedules = build_schedules(payload.schedules)
+        replace_schedules(db, class_, payload.schedules)
     validate_schedules(class_)
     db.commit()
     db.refresh(class_)
@@ -148,6 +184,57 @@ def start_class(
     if not class_.schedules:
         raise HTTPException(status_code=400, detail="กรุณากำหนดวันเรียนและเวลาเรียนก่อนเริ่มการสอน")
     class_.started_at = dt.datetime.now()
+    db.commit()
+    db.refresh(class_)
+    return class_
+
+
+@router.post("/{class_id}/cancellations/{cancel_date}", response_model=ClassOut)
+def cancel_class_day(
+    class_id: int,
+    cancel_date: dt.date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher),
+):
+    """
+    งดสอนวันที่เลือก (วันนี้หรือวันในอนาคตที่มีเรียนตามตาราง): ลบคาบเช็คชื่อของวันนั้น
+    (รวมการเช็คชื่อที่มีแล้ว) นักศึกษาจึงเช็คชื่อไม่ได้และไม่นับขาด
+    มีผลเฉพาะวันนั้น วันเรียนอื่นระบบสร้างคาบตามตารางเรียนตามปกติ
+    """
+    class_ = get_owned_class(db, class_id, current_user)
+    if class_.started_at is None:
+        raise HTTPException(status_code=400, detail="รายวิชานี้ยังไม่เริ่มการสอน")
+    if cancel_date < dt.date.today():
+        raise HTTPException(status_code=400, detail="งดสอนย้อนหลังไม่ได้")
+    if class_.end_date and cancel_date > class_.end_date:
+        raise HTTPException(status_code=400, detail="วันที่งดสอนต้องไม่เกินวันสิ้นสุดการสอน")
+    if all(s.weekday != cancel_date.weekday() for s in class_.schedules):
+        raise HTTPException(status_code=400, detail="วันที่เลือกไม่มีเรียนตามตารางเรียน")
+    if all(c.cancel_date != cancel_date for c in class_.cancellations):
+        class_.cancellations.append(ClassCancellation(cancel_date=cancel_date))
+    for session in (
+        db.query(AttendanceSession)
+        .filter(AttendanceSession.class_id == class_.id, AttendanceSession.session_date == cancel_date)
+        .all()
+    ):
+        db.delete(session)
+    db.commit()
+    db.refresh(class_)
+    return class_
+
+
+@router.delete("/{class_id}/cancellations/{cancel_date}", response_model=ClassOut)
+def undo_cancel_class_day(
+    class_id: int,
+    cancel_date: dt.date,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_teacher),
+):
+    """ยกเลิกการงดสอน: คาบตามตารางเรียนจะถูกสร้างกลับมาเมื่อถึงวันนั้น (หรือเมื่อเรียกดูครั้งถัดไปถ้าเป็นวันนี้)"""
+    class_ = get_owned_class(db, class_id, current_user)
+    if cancel_date < dt.date.today():
+        raise HTTPException(status_code=400, detail="ยกเลิกการงดสอนย้อนหลังไม่ได้")
+    class_.cancellations = [c for c in class_.cancellations if c.cancel_date != cancel_date]
     db.commit()
     db.refresh(class_)
     return class_

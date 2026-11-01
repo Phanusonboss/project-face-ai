@@ -11,10 +11,11 @@ import {
   XCircle,
   Loader2,
   BookOpen,
+  CalendarX,
 } from "lucide-react";
 import { api } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
-import { hhmm, isoDate, STATUS_LABEL } from "../../lib/format";
+import { addDays, hhmm, isoDate, parseDate, STATUS_LABEL, thaiDate } from "../../lib/format";
 import { useAppearanceSettings } from "./useAppearanceSettings";
 
 const inputCls =
@@ -303,20 +304,7 @@ export function ManageCourseModal({ cls, onClose, onSaved }) {
           <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{t("courses.modal.manualFallback")}</div>
           <div className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-relaxed">{t("courses.modal.manualFallbackDesc")}</div>
         </div>
-        <button
-          type="button"
-          onClick={() => update({ allowManualFallback: !rule.allowManualFallback })}
-          className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${
-            rule.allowManualFallback ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-700"
-          }`}
-          aria-pressed={rule.allowManualFallback}
-        >
-          <span
-            className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${
-              rule.allowManualFallback ? "left-6" : "left-1"
-            }`}
-          />
-        </button>
+        <Switch on={rule.allowManualFallback} onChange={(v) => update({ allowManualFallback: v })} />
       </div>
 
       <EnrollmentSection cls={cls} />
@@ -537,68 +525,103 @@ function MarkButton({ cls, title, onClick, children }) {
 }
 
 // ---------------------------------------------------------------------------
-// สร้างรายวิชา + คลาสแรกของรายวิชา
+// สร้างรายวิชา + คลาสแรกของรายวิชา / แก้ไขรายวิชา (cls = คลาสที่จะแก้ไข) + งดสอนวันนี้
 // ---------------------------------------------------------------------------
 export function CreateCourseModal({ onClose, onCreated }) {
+  return <CourseFormModal onClose={onClose} onDone={onCreated} />;
+}
+
+export function EditCourseModal({ cls, onClose, onSaved }) {
+  return <CourseFormModal cls={cls} onClose={onClose} onDone={onSaved} />;
+}
+
+function CourseFormModal({ cls, onClose, onDone }) {
   const { t } = useAppearanceSettings();
   const year = new Date().getFullYear() + 543;
-  const [form, setForm] = useState({
-    course_code: "",
-    course_name: "",
-    credit: 3,
-    class_code: "",
-    semester: "1",
-    academic_year: String(year),
-    start_date: "",
-    end_date: "",
-  });
-  const [time, setTime] = useState(() => initialClassTime(null));
+  const [form, setForm] = useState(() => ({
+    course_code: cls?.course_code || "",
+    course_name: cls?.course_name || "",
+    credit: cls ? (cls.credit ?? "") : 3,
+    class_code: cls?.class_code || "",
+    semester: cls ? cls.semester || "" : "1",
+    academic_year: cls ? cls.academic_year || "" : String(year),
+    start_date: cls?.start_date || "",
+    end_date: cls?.end_date || "",
+  }));
+  const [time, setTime] = useState(() => initialClassTime(cls));
+  const [cancelDays, setCancelDays] = useState(() => cls?.cancelled_dates || []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  // งดสอนได้เฉพาะรายวิชาที่เริ่มการสอนแล้ว
+  const canCancel = !!cls?.started_at;
 
-  async function handleCreate() {
-    if (!form.course_code.trim() || !form.course_name.trim()) {
-      setError(t("live.courseRequired"));
-      return;
-    }
+  function validate() {
+    if (!form.course_code.trim() || !form.course_name.trim()) return t("live.courseRequired");
+    if (form.start_date && form.end_date && form.end_date < form.start_date) return t("courses.modal.endBeforeStart");
     const timeError = classTimeError(time);
-    if (timeError) {
-      setError(t(timeError));
-      return;
-    }
-    setBusy(true);
-    setError("");
+    return timeError ? t(timeError) : "";
+  }
+
+  const courseBody = () => ({
+    course_code: form.course_code.trim(),
+    course_name: form.course_name.trim(),
+    credit: form.credit === "" ? null : Number(form.credit),
+  });
+
+  const classBody = () => ({
+    class_code: form.class_code.trim() || `${form.course_code.trim()}-SEC1`,
+    class_name: form.course_name.trim(),
+    semester: form.semester || null,
+    academic_year: form.academic_year || null,
+    start_date: form.start_date || null,
+    end_date: form.end_date || null,
+    ...classTimeBody(time),
+  });
+
+  async function create() {
     let course = null;
     try {
       const me = await api("/teachers/me");
       course = await api("/courses", {
         method: "POST",
-        body: {
-          course_code: form.course_code.trim(),
-          course_name: form.course_name.trim(),
-          credit: form.credit === "" ? null : Number(form.credit),
-          teacher_id: me.id,
-          department_id: me.department_id,
-        },
+        body: { ...courseBody(), teacher_id: me.id, department_id: me.department_id },
       });
-      await api("/classes", {
-        method: "POST",
-        body: {
-          course_id: course.id,
-          class_code: form.class_code.trim() || `${course.course_code}-SEC1`,
-          class_name: course.course_name,
-          semester: form.semester || null,
-          academic_year: form.academic_year || null,
-          start_date: form.start_date || null,
-          end_date: form.end_date || null,
-          ...classTimeBody(time),
-        },
-      });
-      onCreated();
+      await api("/classes", { method: "POST", body: { course_id: course.id, ...classBody() } });
     } catch (err) {
       // สร้างคลาสไม่สำเร็จ -> ลบรายวิชาที่เพิ่งสร้างทิ้ง จะได้ไม่ค้างครึ่งๆ กลางๆ
       if (course) await api(`/courses/${course.id}`, { method: "DELETE" }).catch(() => {});
+      throw err;
+    }
+  }
+
+  async function update() {
+    // PUT /courses ต้องส่งทุกฟิลด์ -> ดึงของเดิมมาก่อน (department, description)
+    const course = await api(`/courses/${cls.course_id}`);
+    await api(`/courses/${cls.course_id}`, { method: "PUT", body: { ...course, ...courseBody() } });
+    await api(`/classes/${cls.id}`, { method: "PUT", body: classBody() });
+    if (!canCancel) return;
+    const before = cls.cancelled_dates || [];
+    for (const day of cancelDays.filter((d) => !before.includes(d))) {
+      await api(`/classes/${cls.id}/cancellations/${day}`, { method: "POST" });
+    }
+    for (const day of before.filter((d) => !cancelDays.includes(d))) {
+      await api(`/classes/${cls.id}/cancellations/${day}`, { method: "DELETE" });
+    }
+  }
+
+  async function handleSubmit() {
+    const message = validate();
+    if (message) {
+      setError(message);
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await (cls ? update() : create());
+      onDone();
+    } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
@@ -614,14 +637,15 @@ export function CreateCourseModal({ onClose, onCreated }) {
 
   return (
     <ModalShell
-      title={t("courses.createCourse")}
+      code={cls?.course_code}
+      title={cls ? t("courses.editCourse") : t("courses.createCourse")}
       onClose={onClose}
       footer={
         <>
           <CancelButton onClick={onClose} />
-          <PrimaryButton busy={busy} onClick={handleCreate}>
-            {!busy && <BookOpen className="w-4 h-4" />}
-            {t("courses.createCourse")}
+          <PrimaryButton busy={busy} onClick={handleSubmit}>
+            {!busy && (cls ? <Save className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />)}
+            {cls ? t("common.actions.save") : t("courses.createCourse")}
           </PrimaryButton>
         </>
       }
@@ -642,6 +666,88 @@ export function CreateCourseModal({ onClose, onCreated }) {
         {field("end_date", t("live.endDate"), { type: "date" })}
       </div>
       <ClassTimeFields time={time} onChange={setTime} />
+      {canCancel && (
+        <CancelDaysField days={cancelDays} onChange={setCancelDays} slots={time.slots} endDate={form.end_date} />
+      )}
     </ModalShell>
+  );
+}
+
+// วันเรียนตามตารางตั้งแต่วันนี้ถึงวันสิ้นสุดการสอน (ไม่เกิน 6 เดือน) ให้เลือกงดสอน
+// weekday ของ backend: 0=จันทร์ ... 6=อาทิตย์ ส่วน getDay() ของ JS: 0=อาทิตย์
+function upcomingClassDays(slots, endDate) {
+  const weekdays = new Set(slots.filter((s) => s.weekday !== "").map((s) => Number(s.weekday)));
+  const today = new Date();
+  const last = endDate ? parseDate(endDate) : addDays(today, 180);
+  const days = [];
+  for (let d = today; d <= last && days.length < 60; d = addDays(d, 1)) {
+    if (weekdays.has((d.getDay() + 6) % 7)) days.push(isoDate(d));
+  }
+  return days;
+}
+
+function CancelDaysField({ days, onChange, slots, endDate }) {
+  const { t } = useAppearanceSettings();
+  const options = upcomingClassDays(slots, endDate).filter((d) => !days.includes(d));
+  const weekdayOf = (iso) => t(`courses.time.days.${(parseDate(iso).getDay() + 6) % 7}`);
+
+  return (
+    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+      <div>
+        <label className={labelCls}>
+          <CalendarX className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+          {t("courses.cancelDays")}
+        </label>
+        <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-relaxed">{t("courses.cancelDaysDesc")}</p>
+      </div>
+      <select
+        value=""
+        onChange={(e) => e.target.value && onChange([...days, e.target.value].sort())}
+        className={inputCls}
+      >
+        <option value="">{t("courses.pickCancelDay")}</option>
+        {options.map((d) => (
+          <option key={d} value={d}>
+            {weekdayOf(d)} {thaiDate(d)}
+          </option>
+        ))}
+      </select>
+      {days.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {days.map((d) => (
+            <span
+              key={d}
+              className="flex items-center gap-1.5 text-xs font-semibold pl-3 pr-1.5 py-1 rounded-full bg-red-50 dark:bg-red-950/40 text-red-500 dark:text-red-400"
+            >
+              {weekdayOf(d)} {thaiDate(d)}
+              <button
+                type="button"
+                onClick={() => onChange(days.filter((x) => x !== d))}
+                aria-label={t("courses.removeCancelDay")}
+                title={t("courses.removeCancelDay")}
+                className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/50"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Switch({ on, onChange }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!on)}
+      className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${
+        on ? "bg-blue-600" : "bg-slate-200 dark:bg-slate-700"
+      }`}
+      aria-pressed={on}
+    >
+      <span className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${on ? "left-6" : "left-1"}`} />
+    </button>
   );
 }

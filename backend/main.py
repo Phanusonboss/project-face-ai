@@ -13,7 +13,7 @@ from sqlalchemy import inspect, text
 
 from app.config import settings
 from app.database import engine
-from app.models import ClassSchedule
+from app.models import ClassCancellation, ClassSchedule
 from app.routers import (
     announcements,
     attendance,
@@ -46,6 +46,11 @@ def ensure_columns():
             if old in cols:
                 conn.execute(text(f"ALTER TABLE classes DROP COLUMN {old}"))
     ClassSchedule.__table__.create(bind=engine, checkfirst=True)
+    ClassCancellation.__table__.create(bind=engine, checkfirst=True)
+    schedule_cols = {c["name"] for c in inspect(engine).get_columns("class_schedules")}
+    if "effective_from" not in schedule_cols:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE class_schedules ADD COLUMN effective_from DATE NULL"))
 
 
 ensure_columns()

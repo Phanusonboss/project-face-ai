@@ -244,6 +244,8 @@ class ClassOut(ClassBase):
     teacher_name: str | None = None
     student_count: int = 0
     started_at: dt.datetime | None = None
+    cancelled_today: bool = False
+    cancelled_dates: list[dt.date] = []
     schedules: list[ClassScheduleOut] = []
     created_at: dt.datetime
     updated_at: dt.datetime

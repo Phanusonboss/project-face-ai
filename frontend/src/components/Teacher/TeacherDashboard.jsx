@@ -134,12 +134,7 @@ export default function TeacherDashboard() {
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm p-6">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="font-bold text-slate-900 dark:text-slate-100">{t("dashboard.trendTitle")}</h3>
-            <div className="flex items-center gap-2">
-              {courseSelect(trendClass, setTrendClass)}
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5">
-                {t("dashboard.last31Days")}
-              </span>
-            </div>
+            {courseSelect(trendClass, setTrendClass)}
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
