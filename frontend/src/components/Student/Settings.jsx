@@ -1,123 +1,126 @@
-import { useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
-  Home,
-  ScanFace,
-  History,
-  UserPlus,
-  BookOpen,
-  CalendarDays,
-  Megaphone,
-  User,
-  Settings as SettingsIcon,
-  LogOut,
-  Menu,
-  Search,
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  ShieldCheck,
-  Pencil,
+  BellRing,
+  Palette,
   Lock,
+  KeyRound,
+  Globe,
+  Type,
   Sun,
   Moon,
-  Monitor,
-  Globe,
+  Laptop,
+  Download,
+  Save,
+  CheckCircle2,
+  RotateCcw,
   HelpCircle,
   Info,
-  RotateCcw,
-  Trash2,
+  ChevronDown,
+  Settings as SettingsIcon,
 } from "lucide-react";
-import logoImg from "../../assets/logo-cs.png";
-import { api, getUser } from "../../lib/api";
+import { api, API_BASE } from "../../lib/api";
 import { useApi } from "../../lib/useApi";
-import { initial } from "../../lib/format";
+import { downloadBlob, isoDate } from "../../lib/format";
+import { useAppearanceSettings } from "../Teacher/useAppearanceSettings";
+import StudentLayout from "./StudentLayout";
+import { useStudentI18n } from "./studentI18n";
+import { DEFAULT_STUDENT_PREFS, loadStudentPrefs, saveStudentPrefs } from "./studentPrefs";
 
-const PREFS_KEY = "faceattend_student_prefs";
-const DEFAULT_PREFS = {
-  colorMode: "light",
-  fontSize: "normal",
-  notif: { checkin: true, schedule: true, announce: false },
-};
-
-function loadPrefs() {
-  try {
-    return { ...DEFAULT_PREFS, ...JSON.parse(localStorage.getItem(PREFS_KEY)) };
-  } catch {
-    return DEFAULT_PREFS;
-  }
-}
-
-const navItems = [
-  { icon: Home, label: "หน้าหลัก", to: "/dashboard" },
-  { icon: ScanFace, label: "เช็คชื่อ", to: "/checkin" },
-  { icon: History, label: "ประวัติการเช็คชื่อ", to: "/history" },
-  { icon: UserPlus, label: "ลงทะเบียนใบหน้า", to: "/face-registration" },
-  { icon: BookOpen, label: "วิชาเรียนของฉัน", to: "/courses" },
-  { icon: CalendarDays, label: "ตารางเรียน", to: "/schedule" },
-  { icon: Megaphone, label: "ประกาศ", to: "/announcements" },
-  { icon: User, label: "โปรไฟล์", to: "/profile" },
-  { icon: SettingsIcon, label: "ตั้งค่า", to: "/settings", active: true },
+const themeOptions = [
+  { id: "light", icon: Sun },
+  { id: "dark", icon: Moon },
+  { id: "system", icon: Laptop },
 ];
 
-const settingsTabs = [
-  { id: "personal", icon: User, label: "ข้อมูลส่วนตัว", sub: "แก้ไขข้อมูลส่วนตัวของคุณ" },
-  { id: "security", icon: Lock, label: "ความปลอดภัย", sub: "เปลี่ยนรหัสผ่านและการยืนยันตัวตน" },
-  { id: "notifications", icon: Bell, label: "การแจ้งเตือน", sub: "จัดการการแจ้งเตือนต่างๆ" },
-  { id: "theme", icon: Moon, label: "ธีมและการแสดงผล", sub: "ตั้งค่าการแสดงผลและธีม" },
-  { id: "language", icon: Globe, label: "ภาษา", sub: "ตั้งค่าภาษาในการใช้งาน" },
-  { id: "help", icon: HelpCircle, label: "ช่วยเหลือ", sub: "ศูนย์ช่วยเหลือและคำถามที่พบบ่อย" },
-  { id: "about", icon: Info, label: "เกี่ยวกับระบบ", sub: "ข้อมูลเกี่ยวกับระบบ" },
-];
+const fontSizeOptions = ["small", "normal", "large"];
 
-function Toggle({ checked, onChange }) {
+// สวิตช์เปิด/ปิด หน้าตาเดียวกับ ToggleSwitch ฝั่งอาจารย์ แต่เป็นแบบ controlled (รีเซ็ตแล้วสถานะเปลี่ยนตาม)
+function ToggleSwitch({ checked, onChange, label }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${
-        checked ? "bg-blue-600" : "bg-slate-200"
-      }`}
+      className={`w-12 h-7 rounded-full transition-colors relative shrink-0 ${checked ? "bg-blue-600" : "bg-slate-200"}`}
     >
       <span
-        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-5" : "translate-x-0"
-        }`}
+        className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-all ${checked ? "left-6" : "left-1"}`}
       />
     </button>
   );
 }
 
 export default function Settings() {
-  const user = getUser();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState("personal");
-  const [prefs, setPrefs] = useState(loadPrefs);
-  const { colorMode, fontSize, notif } = prefs;
-  const meReq = useApi("/students/me");
-  const me = meReq.data;
-  const [showPwForm, setShowPwForm] = useState(false);
+  const { t } = useStudentI18n();
+  const { theme, language, fontSize, setTheme, setLanguage, setFontSize } = useAppearanceSettings();
+  const [searchParams] = useSearchParams();
+  const focusSection = searchParams.get("tab");
+  const [notice, setNotice] = useState("");
+  const [prefs, setPrefs] = useState(loadStudentPrefs);
+  const { notif } = prefs;
+  const [showPwForm, setShowPwForm] = useState(focusSection === "security");
   const [pw, setPw] = useState({ current: "", next: "", confirm: "" });
   const [pwMsg, setPwMsg] = useState({ tone: "", text: "" });
   const [pwBusy, setPwBusy] = useState(false);
+  const [openFaq, setOpenFaq] = useState(null);
 
-  // การตั้งค่าส่วนตัวเก็บไว้ในเบราว์เซอร์นี้
-  const updatePrefs = (patch) =>
+  // เปิดมาจากลิงก์ ?tab=security (ปุ่ม "เปลี่ยนรหัสผ่าน" ในหน้าโปรไฟล์) ให้เลื่อนไปที่การ์ดนั้น
+  useEffect(() => {
+    if (focusSection) document.getElementById(`settings-${focusSection}`)?.scrollIntoView({ block: "start" });
+  }, [focusSection]);
+
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(""), 2500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  function updateNotif(patch) {
     setPrefs((prev) => {
-      const next = { ...prev, ...patch };
-      try {
-        localStorage.setItem(PREFS_KEY, JSON.stringify(next));
-      } catch {
-        // ignore
-      }
+      const next = { ...prev, notif: { ...prev.notif, ...patch } };
+      saveStudentPrefs(next);
       return next;
     });
-  const setColorMode = (v) => updatePrefs({ colorMode: v });
-  const setFontSize = (v) => updatePrefs({ fontSize: v });
-  const setNotif = (fn) => updatePrefs({ notif: fn(notif) });
+  }
 
-  const changePassword = async () => {
-    if (pw.next.length < 6) return setPwMsg({ tone: "error", text: "รหัสผ่านใหม่ต้องมีอย่างน้อย 6 ตัวอักษร" });
-    if (pw.next !== pw.confirm) return setPwMsg({ tone: "error", text: "รหัสผ่านใหม่และการยืนยันไม่ตรงกัน" });
+  function handleSave() {
+    // ธีม/ภาษา/ขนาดตัวอักษร และการแจ้งเตือน ถูกบันทึกลงเบราว์เซอร์ทันทีที่กดอยู่แล้ว (เหมือนฝั่งอาจารย์)
+    setNotice("settings.saved");
+  }
+
+  function handleReset() {
+    setTheme("light");
+    setLanguage("th");
+    setFontSize("normal");
+    saveStudentPrefs(DEFAULT_STUDENT_PREFS);
+    setPrefs(DEFAULT_STUDENT_PREFS);
+    setNotice("settings.resetDone");
+  }
+
+  async function handleExport() {
+    // ข้อมูลบัญชี รายวิชา และประวัติการเข้าเรียนจาก backend (ถ้าโหลดไม่ได้ก็ยังส่งออกการตั้งค่าได้)
+    const [profile, courses, attendance] = await Promise.all([
+      api("/students/me").catch(() => null),
+      api("/classes/mine").catch(() => []),
+      api(`/attendance/my-sessions?start=2000-01-01&end=${isoDate()}`).catch(() => []),
+    ]);
+    const data = {
+      exportedAt: new Date().toISOString(),
+      profile,
+      courses,
+      attendance,
+      notifications: notif,
+      display: { theme, language, fontSize },
+    };
+    downloadBlob("account-data.json", new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+  }
+
+  async function changePassword() {
+    if (pw.next.length < 6) return setPwMsg({ tone: "error", text: t("settings.pwTooShort") });
+    if (pw.next !== pw.confirm) return setPwMsg({ tone: "error", text: t("settings.pwMismatch") });
     setPwBusy(true);
     try {
       await api("/auth/change-password", {
@@ -126,432 +129,289 @@ export default function Settings() {
       });
       setPw({ current: "", next: "", confirm: "" });
       setShowPwForm(false);
-      setPwMsg({ tone: "success", text: "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว" });
+      setPwMsg({ tone: "success", text: t("settings.pwChanged") });
     } catch (err) {
       setPwMsg({ tone: "error", text: err.message });
     } finally {
       setPwBusy(false);
     }
-  };
-  const personalRef = useRef(null);
-  const securityRef = useRef(null);
-  const notificationsRef = useRef(null);
-  const themeRef = useRef(null);
-
-  const handleTabClick = (id) => {
-    setActiveTab(id);
-    const ref = { personal: personalRef, security: securityRef, notifications: notificationsRef, theme: themeRef }[id];
-    if (ref?.current) {
-      ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
+  }
 
   return (
-    <div className="min-h-screen w-full bg-slate-50 font-sans flex">
-      {/* ---------- Sidebar ---------- */}
-      <aside
-        className={`${
-          sidebarOpen ? "w-64" : "w-0 lg:w-64"
-        } shrink-0 bg-white border-r border-slate-100 flex flex-col transition-all overflow-hidden`}
-      >
-        <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-100 shrink-0">
-          <img src={logoImg} alt="CS FaceAttend" className="h-10 w-auto object-contain" />
-          <div className="leading-tight">
-            <div className="text-base font-bold text-slate-900 whitespace-nowrap">
-              CS FaceAttend
-            </div>
-            <div className="text-[10px] text-slate-400 whitespace-nowrap">
-              Computer Science AI Face Attendance System
-            </div>
-          </div>
+    <StudentLayout titleIcon={SettingsIcon} titleKey="settings.title" subtitleKey="settings.subtitle">
+      {notice && (
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-medium rounded-xl px-4 py-3">
+          <CheckCircle2 className="w-4 h-4" />
+          {t(notice)}
         </div>
+      )}
 
-        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
-          {navItems.map(({ icon: Icon, label, to, active }) => (
-            <Link
-              key={label}
-              to={to}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors whitespace-nowrap ${
-                active
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              }`}
-            >
-              <Icon className="w-5 h-5 shrink-0" />
-              {label}
-            </Link>
-          ))}
-        </nav>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+        {/* ---- Notifications ---- */}
+        <SectionCard id="notifications" icon={BellRing} title={t("settings.notifications")} color="blue">
+          {[
+            ["checkin", "settings.notifCheckin"],
+            ["schedule", "settings.notifSchedule"],
+            ["announce", "settings.notifAnnounce"],
+          ].map(([key, textKey], i, arr) => {
+            const [title, desc] = t(textKey);
+            return (
+              <ToggleRow
+                key={key}
+                title={title}
+                desc={desc}
+                checked={notif[key]}
+                onChange={(v) => updateNotif({ [key]: v })}
+                last={i === arr.length - 1}
+              />
+            );
+          })}
+        </SectionCard>
 
-        <div className="px-4 pb-4">
-          <Link
-            to="/login"
-            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition-colors whitespace-nowrap"
-          >
-            <LogOut className="w-5 h-5 shrink-0" />
-            ออกจากระบบ
-          </Link>
-        </div>
-
-        <div className="p-4">
-          <div className="rounded-2xl bg-blue-50 border border-blue-100 p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-5 h-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-800 whitespace-nowrap">
-                  ระบบปลอดภัย
-                </div>
-                <div className="text-xs text-slate-500 leading-snug mt-0.5">
-                  ข้อมูลของคุณได้รับการปกป้องอย่างปลอดภัย
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 mt-3">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="text-xs font-medium text-emerald-600">ออนไลน์</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ---------- Main ---------- */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center gap-4 px-6 shrink-0">
-          <button
-            onClick={() => setSidebarOpen((v) => !v)}
-            className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors shrink-0"
-            aria-label="สลับเมนู"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="ค้นหา..."
-              className="w-full pl-11 pr-4 py-2.5 rounded-xl bg-slate-100 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
-            />
-          </div>
-
-          <div className="flex-1" />
-
-          <button className="relative w-10 h-10 flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 transition-colors shrink-0">
-            <Bell className="w-5 h-5" />
-          </button>
-
-          <button className="flex items-center gap-2.5 pl-2 shrink-0">
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
-              {initial(user?.full_name)}
-            </div>
-            <div className="text-left hidden sm:block">
-              <div className="text-sm font-semibold text-slate-800 whitespace-nowrap">
-                {user?.full_name || "-"}
-              </div>
-              <div className="text-xs text-slate-400 whitespace-nowrap">นักศึกษา</div>
-            </div>
-            <ChevronDown className="w-4 h-4 text-slate-400 hidden sm:block" />
-          </button>
-        </header>
-
-        {/* Body */}
-        <main className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Title */}
+        {/* ---- Display & language ---- */}
+        <SectionCard id="display" icon={Palette} title={t("settings.display")} color="purple">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">ตั้งค่า</h1>
-            <p className="text-sm text-slate-500 mt-1">จัดการการตั้งค่าทั้งหมดของคุณ</p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
-            {/* Settings nav */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 space-y-1 lg:sticky lg:top-6">
-              {settingsTabs.map(({ id, icon: Icon, label, sub }) => (
+            <label className="text-xs font-semibold text-slate-500 mb-2 block">{t("settings.theme")}</label>
+            <div className="grid grid-cols-3 gap-2">
+              {themeOptions.map((opt) => (
                 <button
-                  key={id}
-                  onClick={() => handleTabClick(id)}
-                  className={`w-full flex items-start gap-3 text-left px-3.5 py-3 rounded-xl transition-colors ${
-                    activeTab === id
-                      ? "bg-blue-50 text-blue-600 border border-blue-100"
-                      : "text-slate-500 hover:bg-slate-50 border border-transparent"
+                  key={opt.id}
+                  onClick={() => setTheme(opt.id)}
+                  aria-pressed={theme === opt.id}
+                  className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 transition-all ${
+                    theme === opt.id
+                      ? "border-transparent ring-2 ring-blue-500 bg-blue-50"
+                      : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  <Icon className="w-5 h-5 mt-0.5 shrink-0" />
-                  <div className="min-w-0">
-                    <div
-                      className={`text-sm font-semibold ${
-                        activeTab === id ? "text-blue-600" : "text-slate-700"
-                      }`}
-                    >
-                      {label}
-                    </div>
-                    <div className="text-xs text-slate-400 leading-snug">{sub}</div>
-                  </div>
+                  <opt.icon className="w-5 h-5 text-slate-600" />
+                  <span className="text-xs font-medium text-slate-700">{t(`settings.${opt.id}`)}</span>
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Right content */}
-            <div className="space-y-5">
-              {/* Personal info */}
-              <div ref={personalRef} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                <div className="flex items-center justify-between mb-5">
-                  <h3 className="font-bold text-slate-900">ข้อมูลส่วนตัว</h3>
-                  <Link to="/profile" className="flex items-center gap-1.5 border border-blue-200 text-blue-600 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors">
-                    <Pencil className="w-3.5 h-3.5" />
-                    แก้ไข
-                  </Link>
-                </div>
+          <div className="mt-4">
+            <label
+              htmlFor="settings-language"
+              className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5"
+            >
+              <Globe className="w-3.5 h-3.5 text-slate-400" />
+              {t("settings.language")}
+            </label>
+            <select
+              id="settings-language"
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            >
+              {/* ชื่อภาษาในตัวเลือกนี้แสดงเป็นชื่อของภาษานั้น ๆ เอง ไม่แปลตามภาษาที่เลือกอยู่ */}
+              <option value="th">ภาษาไทย</option>
+              <option value="en">English</option>
+            </select>
+          </div>
 
-                <div className="flex flex-col sm:flex-row gap-6">
-                  <div className="shrink-0 self-center sm:self-start w-20 h-20 rounded-full bg-blue-600 text-white text-2xl font-bold flex items-center justify-center ring-4 ring-blue-50">
-                    {initial(me?.full_name || user?.full_name)}
-                  </div>
-
-                  <div className="flex-1 divide-y divide-slate-100">
-                    {[
-                      ["ชื่อ-นามสกุล", me?.full_name],
-                      ["รหัสนักศึกษา", me?.student_code],
-                      ["Email", me?.email],
-                      ["เบอร์โทรศัพท์", me?.phone],
-                      ["สาขาวิชา", me?.major],
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-2.5"
-                      >
-                        <div className="text-sm text-slate-400 w-32 shrink-0">{label}</div>
-                        <div className="text-sm text-slate-800 font-medium">{value || "-"}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                <div className="space-y-5">
-                  {/* Security */}
-                  <div ref={securityRef} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                    <h3 className="font-bold text-slate-900 mb-4">ความปลอดภัย</h3>
-                    <div className="space-y-1">
-                      <SettingRow
-                        icon={<Lock className="w-5 h-5 text-blue-600" />}
-                        iconBg="bg-blue-100"
-                        title="เปลี่ยนรหัสผ่าน"
-                        sub="อัปเดตรหัสผ่านเพื่อความปลอดภัยของบัญชี"
-                        action={
-                          <button
-                            onClick={() => {
-                              setShowPwForm((v) => !v);
-                              setPwMsg({ tone: "", text: "" });
-                            }}
-                            className="flex items-center gap-1.5 text-blue-600 border border-blue-200 text-xs font-semibold px-3.5 py-2 rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
-                          >
-                            {showPwForm ? "ยกเลิก" : "เปลี่ยนรหัสผ่าน"}
-                            <ChevronRight className="w-3.5 h-3.5" />
-                          </button>
-                        }
-                      />
-                      {pwMsg.text && (
-                        <div className={`text-sm px-2 ${pwMsg.tone === "success" ? "text-emerald-600" : "text-red-500"}`}>
-                          {pwMsg.text}
-                        </div>
-                      )}
-                      {showPwForm && (
-                        <div className="space-y-2.5 pt-2">
-                          {[
-                            ["current", "รหัสผ่านปัจจุบัน"],
-                            ["next", "รหัสผ่านใหม่ (อย่างน้อย 6 ตัวอักษร)"],
-                            ["confirm", "ยืนยันรหัสผ่านใหม่"],
-                          ].map(([key, label]) => (
-                            <input
-                              key={key}
-                              type="password"
-                              placeholder={label}
-                              value={pw[key]}
-                              onChange={(e) => setPw((p) => ({ ...p, [key]: e.target.value }))}
-                              className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                            />
-                          ))}
-                          <button
-                            onClick={changePassword}
-                            disabled={pwBusy || !pw.current || !pw.next}
-                            className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-semibold py-2.5 rounded-xl"
-                          >
-                            {pwBusy ? "กำลังบันทึก..." : "บันทึกรหัสผ่านใหม่"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Notifications */}
-                  <div
-                    ref={notificationsRef}
-                    className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6"
-                  >
-                    <h3 className="font-bold text-slate-900 mb-4">การแจ้งเตือน</h3>
-                    <div className="space-y-1">
-                      <SettingRow
-                        icon={<Bell className="w-5 h-5 text-blue-600" />}
-                        iconBg="bg-blue-100"
-                        title="แจ้งเตือนการเช็คชื่อ"
-                        sub="รับการแจ้งเตือนเมื่อมีการเช็คชื่อในรายวิชา"
-                        action={
-                          <Toggle
-                            checked={notif.checkin}
-                            onChange={(v) => setNotif((n) => ({ ...n, checkin: v }))}
-                          />
-                        }
-                      />
-                      <SettingRow
-                        icon={<CalendarDays className="w-5 h-5 text-emerald-600" />}
-                        iconBg="bg-emerald-100"
-                        title="แจ้งเตือนตารางเรียน"
-                        sub="รับการแจ้งเตือนก่อนเวลาเรียน"
-                        action={
-                          <Toggle
-                            checked={notif.schedule}
-                            onChange={(v) => setNotif((n) => ({ ...n, schedule: v }))}
-                          />
-                        }
-                      />
-                      <SettingRow
-                        icon={<Megaphone className="w-5 h-5 text-amber-600" />}
-                        iconBg="bg-amber-100"
-                        title="แจ้งเตือนประกาศ"
-                        sub="รับการแจ้งเตือนเมื่อมีประกาศใหม่"
-                        action={
-                          <Toggle
-                            checked={notif.announce}
-                            onChange={(v) => setNotif((n) => ({ ...n, announce: v }))}
-                          />
-                        }
-                      />
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-3">การตั้งค่านี้บันทึกไว้ในเบราว์เซอร์เครื่องนี้</p>
-                  </div>
-                </div>
-
-                <div className="space-y-5">
-                  {/* Theme & display */}
-                  <div ref={themeRef} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                    <h3 className="font-bold text-slate-900 mb-4">ธีมและการแสดงผล</h3>
-
-                    <div className="mb-5">
-                      <div className="text-xs text-slate-500 font-medium mb-2">โหมดสี</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { id: "light", icon: Sun, label: "สว่าง" },
-                          { id: "dark", icon: Moon, label: "มืด" },
-                          { id: "system", icon: Monitor, label: "ตามระบบ" },
-                        ].map(({ id, icon: Icon, label }) => (
-                          <button
-                            key={id}
-                            onClick={() => setColorMode(id)}
-                            className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border text-xs font-medium transition-colors ${
-                              colorMode === id
-                                ? "border-blue-400 bg-blue-50 text-blue-600"
-                                : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                            }`}
-                          >
-                            <Icon className="w-5 h-5" />
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mb-5">
-                      <div className="text-xs text-slate-500 font-medium mb-2">ขนาดตัวอักษร</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { id: "small", label: "เล็ก" },
-                          { id: "normal", label: "ปกติ" },
-                          { id: "large", label: "ใหญ่" },
-                        ].map(({ id, label }) => (
-                          <button
-                            key={id}
-                            onClick={() => setFontSize(id)}
-                            className={`py-2.5 rounded-xl border text-xs font-medium transition-colors ${
-                              fontSize === id
-                                ? "border-blue-400 bg-blue-50 text-blue-600"
-                                : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-xs text-slate-500 font-medium mb-2">ภาษาของระบบ</div>
-                      <button className="w-full flex items-center gap-2 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-700 font-medium hover:bg-slate-50 transition-colors">
-                        <Globe className="w-4 h-4 text-slate-400" />
-                        ภาษาไทย
-                        <ChevronDown className="w-4 h-4 text-slate-400 ml-auto" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Other settings */}
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                    <h3 className="font-bold text-slate-900 mb-4">ตั้งค่าอื่นๆ</h3>
-                    <div className="space-y-1">
-                      <button
-                        onClick={() => updatePrefs(DEFAULT_PREFS)}
-                        className="w-full flex items-center gap-3 hover:bg-slate-50 rounded-xl px-2 py-2.5 transition-colors"
-                      >
-                        <div className="w-11 h-11 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                          <RotateCcw className="w-5 h-5 text-slate-500" />
-                        </div>
-                        <div className="text-left min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-slate-800">ตั้งค่าเริ่มต้น</div>
-                          <div className="text-xs text-slate-400">รีเซ็ตการตั้งค่าทั้งหมด</div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 shrink-0" />
-                      </button>
-                      <div className="w-full flex items-center gap-3 rounded-xl px-2 py-2.5">
-                        <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-                          <Trash2 className="w-5 h-5 text-red-500" />
-                        </div>
-                        <div className="text-left min-w-0 flex-1">
-                          <div className="text-sm font-semibold text-red-500">ลบบัญชี</div>
-                          <div className="text-xs text-slate-400">
-                            หากต้องการลบบัญชี กรุณาติดต่ออาจารย์ผู้ดูแลระบบ
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+          <div className="mt-4">
+            <label className="text-xs font-semibold text-slate-500 mb-1.5 flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5 text-slate-400" />
+              {t("settings.fontSize")}
+            </label>
+            <div className="flex gap-2">
+              {fontSizeOptions.map((id) => (
+                <button
+                  key={id}
+                  onClick={() => setFontSize(id)}
+                  aria-pressed={fontSize === id}
+                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                    fontSize === id
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {t(`settings.${id}`)}
+                </button>
+              ))}
             </div>
           </div>
-        </main>
+        </SectionCard>
 
-        <footer className="text-center text-xs text-slate-400 py-6">
-          © 2026 Computer Science AI Face Attendance System. All rights reserved.
-        </footer>
+        {/* ---- Security ---- */}
+        <SectionCard id="security" icon={KeyRound} title={t("settings.security")} color="emerald">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-slate-800">{t("settings.changePassword")}</div>
+              <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">{t("settings.changePasswordDesc")}</div>
+            </div>
+            <button
+              onClick={() => {
+                setShowPwForm((v) => !v);
+                setPwMsg({ tone: "", text: "" });
+              }}
+              className="border border-slate-200 hover:bg-slate-50 transition-colors text-slate-700 text-sm font-semibold px-4 py-2 rounded-xl shrink-0"
+            >
+              {showPwForm ? t("common.cancel") : t("settings.changePassword")}
+            </button>
+          </div>
+          {pwMsg.text && (
+            <div className={`text-sm mt-3 ${pwMsg.tone === "success" ? "text-emerald-600" : "text-red-500"}`}>
+              {pwMsg.text}
+            </div>
+          )}
+          {showPwForm && (
+            <form
+              className="space-y-2.5 mt-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                changePassword();
+              }}
+            >
+              {[
+                ["current", t("settings.pwCurrent"), "current-password"],
+                ["next", t("settings.pwNew"), "new-password"],
+                ["confirm", t("settings.pwConfirm"), "new-password"],
+              ].map(([key, label, autoComplete]) => (
+                <input
+                  key={key}
+                  type="password"
+                  placeholder={label}
+                  aria-label={label}
+                  autoComplete={autoComplete}
+                  value={pw[key]}
+                  onChange={(e) => setPw((p) => ({ ...p, [key]: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+              ))}
+              <button
+                type="submit"
+                disabled={pwBusy || !pw.current || !pw.next}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-60 transition-colors text-white text-sm font-semibold py-2.5 rounded-xl"
+              >
+                {pwBusy ? t("settings.saving") : t("settings.savePw")}
+              </button>
+            </form>
+          )}
+        </SectionCard>
+
+        {/* ---- Privacy & data ---- */}
+        <SectionCard id="privacy" icon={Lock} title={t("settings.privacy")} color="rose">
+          <p className="text-xs text-slate-500 leading-relaxed">{t("settings.privacyDesc")}</p>
+          <button
+            onClick={handleExport}
+            className="mt-4 w-full flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 transition-colors text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-xl"
+          >
+            <Download className="w-4 h-4" />
+            {t("settings.download")}
+          </button>
+          <button
+            onClick={handleReset}
+            className="mt-2 w-full flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 transition-colors text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-xl"
+            title={t("settings.resetDesc")}
+          >
+            <RotateCcw className="w-4 h-4" />
+            {t("settings.reset")}
+          </button>
+          <p className="text-[11px] text-slate-400 mt-3 leading-relaxed">{t("settings.deleteAccountDesc")}</p>
+        </SectionCard>
+
+        {/* ---- Help ---- */}
+        <SectionCard id="help" icon={HelpCircle} title={t("settings.help")} color="blue">
+          <div className="divide-y divide-slate-100 -my-3">
+            {t("settings.faq").map(([q, a], i) => (
+              <div key={i}>
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  className="w-full flex items-center justify-between gap-3 py-3 text-left text-sm font-semibold text-slate-800"
+                >
+                  {q}
+                  <ChevronDown
+                    className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${openFaq === i ? "rotate-180" : ""}`}
+                  />
+                </button>
+                {openFaq === i && <p className="text-xs text-slate-500 pb-3 leading-relaxed">{a}</p>}
+              </div>
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* ---- About ---- */}
+        <SectionCard id="about" icon={Info} title={t("settings.about")} color="emerald">
+          <AboutSystem />
+        </SectionCard>
       </div>
+
+      {/* Sticky save bar */}
+      <div className="sticky bottom-4 flex justify-end">
+        <button
+          onClick={handleSave}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 transition-colors text-white text-sm font-semibold px-6 py-3 rounded-xl shadow-lg shadow-blue-200"
+        >
+          <Save className="w-4 h-4" />
+          {t("settings.saveAll")}
+        </button>
+      </div>
+    </StudentLayout>
+  );
+}
+
+// ข้อมูลระบบ + สถานะเซิร์ฟเวอร์จริงจาก backend
+function AboutSystem() {
+  const { t } = useStudentI18n();
+  const { data, error, loading } = useApi("/");
+  const rows = [
+    [t("settings.version"), "2.0.0"],
+    [
+      t("settings.server"),
+      <span key="s" className={`inline-flex items-center gap-1.5 ${error ? "text-red-500" : "text-emerald-600"}`}>
+        <span className={`w-2 h-2 rounded-full ${error ? "bg-red-500" : "bg-emerald-500"}`} />
+        {loading ? t("common.loading") : error ? "offline" : data?.status || "ok"}
+      </span>,
+    ],
+    ["API", <span key="a" className="break-all">{API_BASE}</span>],
+  ];
+  return (
+    <>
+      <p className="text-xs text-slate-500 leading-relaxed mb-2">{t("settings.aboutDesc")}</p>
+      <div className="divide-y divide-slate-100">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-center justify-between gap-4 py-2.5 text-sm">
+            <span className="text-slate-400">{label}</span>
+            <span className="text-slate-800 font-medium text-right">{value}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function SectionCard({ id, icon: Icon, title, color, children }) {
+  const colorMap = {
+    blue: "bg-blue-100 text-blue-600",
+    emerald: "bg-emerald-100 text-emerald-600",
+    purple: "bg-purple-100 text-purple-600",
+    rose: "bg-rose-100 text-rose-500",
+  };
+  return (
+    <div id={`settings-${id}`} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 scroll-mt-6">
+      <div className="flex items-center gap-2.5 mb-5">
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colorMap[color]}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <h3 className="font-bold text-slate-900">{title}</h3>
+      </div>
+      {children}
     </div>
   );
 }
 
-function SettingRow({ icon, iconBg, title, sub, action }) {
+function ToggleRow({ title, desc, checked, onChange, last }) {
   return (
-    <div className="flex items-center gap-3 py-2.5">
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${iconBg}`}>
-        {icon}
-      </div>
-      <div className="min-w-0 flex-1">
+    <div className={`flex items-center justify-between gap-4 py-3 ${!last ? "border-b border-slate-100" : ""}`}>
+      <div className="min-w-0">
         <div className="text-sm font-semibold text-slate-800">{title}</div>
-        <div className="text-xs text-slate-400 leading-snug">{sub}</div>
+        <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">{desc}</div>
       </div>
-      {action}
+      <ToggleSwitch checked={checked} onChange={onChange} label={title} />
     </div>
   );
 }
